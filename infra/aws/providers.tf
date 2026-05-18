@@ -9,8 +9,8 @@ terraform {
 }
 
 provider "aws" {
-  region  = "us-east-1"
-  profile = "oil-gas-dev"
+  region  = var.region
+  profile = var.aws_profile
 
   default_tags {
     tags = {
