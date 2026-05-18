@@ -1,0 +1,15 @@
+services:
+  localstack:
+    container_name: localstack-oil-gas
+    image: localstack/localstack:4.0
+    ports:
+      - "4566:4566"            # Edge port (todos los servicios)
+      - "4510-4559:4510-4559"  # External services range
+    environment:
+      - DEBUG=0
+      - SERVICES=s3,iam,lambda,logs,sts,glue,athena
+      - PERSISTENCE=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./volume:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
