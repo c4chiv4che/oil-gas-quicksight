@@ -24,31 +24,40 @@ Data lands in S3 (Parquet, date-partitioned), gets crawled into Glue, and is que
 
 ## Architecture
 
-┌─────────────────────────────────────────────────────────────┐
-│  SIMULATOR (Python, Typer CLI)                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────────┐           │
-│  │ wells.py │ →  │ plant.py │ →  │ utilities.py │           │
-│  └──────────┘    └──────────┘    └──────────────┘           │
-│   32 cols          60 cols          20 cols                 │
-│       │                │                  │                 │
-│       └────────────────┴──────────────────┘                 │
-│                        ▼                                    │
-│              Parquet, date-partitioned                      │
-└────────────────────────┬────────────────────────────────────┘
-│ aws s3 sync (parallel)
-▼
-┌─────────────────────────────────────────────────────────────┐
-│  AWS                                                        │
-│                                                             │
-│   S3 (raw)  →  Glue Crawler  →  Glue Data Catalog           │
-│                                       │                     │
-│                                       ▼                     │
-│                                  Athena (SQL)               │
-│                                       │                     │
-│                                       ▼                     │
-│                              QuickSight (BI)                │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph SIM["🐍 SIMULATOR (Python + Typer CLI)"]
+        direction LR
+        W["wells.py<br/>32 cols<br/>4 wells × 1-min"]
+        P["plant.py<br/>60 cols<br/>8 unit sections"]
+        U["utilities.py<br/>20 cols<br/>hot oil + IA + flare"]
+        W -.->|flow-weighted<br/>composition| P
+        P -.->|plant state| U
+    end
 
+    SIM ==>|"Parquet<br/>date-partitioned"| SYNC["aws s3 sync<br/>(3 layers in parallel)"]
+
+    subgraph AWS["☁️ AWS"]
+        direction TB
+        S3["S3 (raw)<br/>vaca-muerta-raw-*"]
+        GC["Glue Crawler<br/>vaca-muerta-crawler"]
+        CAT["Glue Catalog<br/>oil_gas_db<br/>(3 tables)"]
+        AT["Athena<br/>workgroup: oil-gas-wg"]
+        QS["QuickSight<br/>Standard Edition"]
+
+        S3 --> GC
+        GC --> CAT
+        CAT --> AT
+        AT --> QS
+    end
+
+    SYNC ==> S3
+
+    classDef sim fill:#1e3a5f,stroke:#4a9eff,color:#fff
+    classDef aws fill:#3d2817,stroke:#ff9900,color:#fff
+    class W,P,U sim
+    class S3,GC,CAT,AT,QS aws
+```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 
@@ -123,33 +132,36 @@ make all
 ---
 
 ## Project structure
+
+```text
 .
-├── simulator/              # The simulator itself (uv-managed)
+├── simulator/                      # The simulator itself (uv-managed)
 │   ├── pyproject.toml
 │   └── src/
-│       ├── config.py       # Pad/well/signal constants, S3 buckets
-│       ├── physics.py      # Arps decline, GOR creep, hydrate curves, anti-surge
-│       ├── quality.py      # GasComposition, PCS/Wobbe/density, TEG, LTS
-│       ├── events.py       # WellEvent/PlantEvent/SacadaReason enums, ESD state machine
-│       ├── wells.py        # Layer 1: 4 wells with state machines
-│       ├── plant.py        # Layer 2: 8 plant unit sections
-│       ├── utilities.py    # Layer 3: hot oil + IA + flare
-│       ├── output.py       # Parquet writes + S3 upload + Rich summary
-│       ├── cli.py          # Typer CLI
-│       └── simulator.py    # Main entry point
+│       ├── config.py               # Pad/well/signal constants, S3 buckets
+│       ├── physics.py              # Arps decline, GOR creep, hydrate curves, anti-surge
+│       ├── quality.py              # GasComposition, PCS/Wobbe/density, TEG, LTS
+│       ├── events.py               # WellEvent/PlantEvent/SacadaReason enums, ESD state machine
+│       ├── wells.py                # Layer 1: 4 wells with state machines
+│       ├── plant.py                # Layer 2: 8 plant unit sections
+│       ├── utilities.py            # Layer 3: hot oil + IA + flare
+│       ├── output.py               # Parquet writes + S3 upload + Rich summary
+│       ├── cli.py                  # Typer CLI
+│       └── simulator.py            # Main entry point
 ├── infra/
-│   ├── localstack/         # Local AWS for dev/testing (S3 only)
-│   └── aws/                # Production AWS (S3, Glue, Athena, QuickSight, IAM)
+│   ├── localstack/                 # Local AWS for dev/testing (S3 only)
+│   └── aws/                        # Production AWS (S3, Glue, Athena, QuickSight, IAM)
 ├── analytics/
-│   ├── queries/            # 5 versioned Athena SQL queries
-│   └── run_query.sh        # Athena runner with CSV output
+│   ├── queries/                    # 5 versioned Athena SQL queries
+│   └── run_query.sh                # Athena runner with CSV output
 ├── docs/
-│   ├── SIMULATOR_SPEC.md   # Full domain spec (IAPG/ITP Neuquén/NAG-602)
-│   └── ARCHITECTURE.md     # Architecture details + known issues
+│   ├── SIMULATOR_SPEC.md           # Full domain spec (IAPG/ITP Neuquén/NAG-602)
+│   └── ARCHITECTURE.md             # Architecture details + known issues
 ├── .github/
-│   ├── workflows/          # CI: terraform fmt + validate on PRs
-│   └── ISSUE_TEMPLATE/     # Bug report templates
+│   ├── workflows/                  # CI: terraform fmt + validate on PRs
+│   └── ISSUE_TEMPLATE/             # Bug report templates
 └── Makefile
+```
 
 ---
 
