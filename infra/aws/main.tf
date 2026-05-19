@@ -61,19 +61,29 @@ resource "aws_glue_catalog_database" "oil_gas" {
   description = "Vaca Muerta pad data catalog"
 }
 
-resource "aws_glue_crawler" "wells" {
-  name          = "wells-crawler"
+resource "aws_glue_crawler" "vaca_muerta" {
+  name          = "vaca-muerta-crawler"
   database_name = aws_glue_catalog_database.oil_gas.name
   role          = aws_iam_role.glue.arn
-  description   = "Crawls Vaca Muerta well Parquet data from S3"
+  description   = "Crawls all three layers (wells, plant, utilities) of Vaca Muerta data"
 
   s3_target {
     path = "s3://${aws_s3_bucket.raw.id}/wells/"
   }
+  s3_target {
+    path = "s3://${aws_s3_bucket.raw.id}/plant/"
+  }
+  s3_target {
+    path = "s3://${aws_s3_bucket.raw.id}/utilities/"
+  }
 
   schema_change_policy {
-    delete_behavior = "LOG"
+    delete_behavior = "DELETE_FROM_DATABASE"
     update_behavior = "UPDATE_IN_DATABASE"
+  }
+
+  recrawl_policy {
+    recrawl_behavior = "CRAWL_EVERYTHING"
   }
 
   configuration = jsonencode({
@@ -83,6 +93,7 @@ resource "aws_glue_crawler" "wells" {
     }
   })
 }
+
 
 # ─── ATHENA ──────────────────────────────────────────────────────────────────
 
@@ -102,19 +113,19 @@ resource "aws_athena_workgroup" "oil_gas" {
 ## ─── TIMESTREAM ──────────────────────────────────────────────────────────────
 
 ## resource "aws_timestreamwrite_database" "oil_gas" {
- # database_name = "oil-gas-db"
+# database_name = "oil-gas-db"
 #}
 
 ## resource "aws_timestreamwrite_table" "well_signals" {
 ## database_name = aws_timestreamwrite_database.oil_gas.database_name
- # table_name    = "well-signals"
+# table_name    = "well-signals"
 
-  #retention_properties {
-   # memory_store_retention_period_in_hours = 24      # 1 día en memoria (más rápido/caro)
-    #magnetic_store_retention_period_in_days = 365    # 1 año en disco (más barato)
-  #}
+#retention_properties {
+# memory_store_retention_period_in_hours = 24      # 1 día en memoria (más rápido/caro)
+#magnetic_store_retention_period_in_days = 365    # 1 año en disco (más barato)
+#}
 
-  #magnetic_store_write_properties {
-    #enable_magnetic_store_writes = true
-  #}
+#magnetic_store_write_properties {
+#enable_magnetic_store_writes = true
+#}
 #}
