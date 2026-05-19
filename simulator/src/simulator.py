@@ -1,266 +1,147 @@
-"""
-Vaca Muerta Shale — Synthetic OT Data Simulator
-Generates realistic time-series signals for a multi-well pad.
+"""Main entry point.  Orchestrates the three layers and writes Parquet output.
+
+Usage:
+    uv run python -m src.simulator                                   # smoke-test defaults
+    uv run python -m src.simulator --days 180 --freq 1               # full volume
+    uv run python -m src.simulator --upload local
 """
 
-import random
-import math
-import json
-from datetime import datetime, timedelta, timezone
+from __future__ import annotations
+
+import sys
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-import boto3
-from botocore.config import Config
 from rich.console import Console
-from rich.progress import track
+from rich.progress import (
+    BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn,
+)
+
+from .cli import RunConfig, app
+from .config import PAD_ID, WELL_IDS, WELL_OFFSETS_DAYS
+from .events import EventBus, WellEvent
+from .output import render_summary, upload_layer_s3, write_layer_parquet
+from .plant import Plant
+from .utilities import Utilities
+from .wells import Well, WellPad
 
 console = Console()
 
-# ─────────────────────────────────────────────
-# PHYSICAL CONSTANTS & REALISTIC RANGES
-# Vaca Muerta horizontal well, ESP-lifted
-# ─────────────────────────────────────────────
-PAD_CONFIG = {
-    "pad_id": "PAD-LLL-01",
-    "formation": "Vaca Muerta",
-    "basin": "Neuquén",
-    "wells": [
-        {"well_id": "LLL-001", "first_production": "2024-01-15", "lateral_length_m": 2800, "stages": 45},
-        {"well_id": "LLL-002", "first_production": "2024-02-01", "lateral_length_m": 3100, "stages": 50},
-        {"well_id": "LLL-003", "first_production": "2024-03-10", "lateral_length_m": 2950, "stages": 48},
-        {"well_id": "LLL-004", "first_production": "2024-04-20", "lateral_length_m": 3050, "stages": 49},
-    ]
-}
 
-SIGNAL_RANGES = {
-    # Wellhead Pressure (bar)
-    "whp_bar":        {"min": 20,   "max": 180,  "noise_pct": 0.005},
-    # Casing Head Pressure (bar)
-    "chp_bar":        {"min": 10,   "max": 80,   "noise_pct": 0.007},
-    # Flowline Temperature (°C)
-    "flowline_temp_c":{"min": 40,   "max": 95,   "noise_pct": 0.003},
-    # Oil rate (m³/day)
-    "oil_rate_m3d":   {"min": 0,    "max": 120,  "noise_pct": 0.02},
-    # Gas rate (Mm³/day — thousand m³)
-    "gas_rate_mm3d":  {"min": 0,    "max": 80,   "noise_pct": 0.025},
-    # Produced water (m³/day)
-    "water_rate_m3d": {"min": 0,    "max": 30,   "noise_pct": 0.015},
-    # ESP motor current (A)
-    "esp_current_a":  {"min": 40,   "max": 120,  "noise_pct": 0.008},
-    # ESP frequency (Hz)
-    "esp_freq_hz":    {"min": 35,   "max": 65,   "noise_pct": 0.002},
-    # Choke position (% open)
-    "choke_pct":      {"min": 0,    "max": 100,  "noise_pct": 0.001},
-    # Downhole pressure (bar)  — calculado, no medido directo en todos
-    "downhole_pres_bar": {"min": 180, "max": 420, "noise_pct": 0.004},
-    # Gas-oil ratio (m³/m³)
-    "gor_m3m3":       {"min": 100,  "max": 800,  "noise_pct": 0.03},
-    # Water cut (fraction)
-    "watercut_frac":  {"min": 0.02, "max": 0.45, "noise_pct": 0.01},
-}
+def _build_pad(start: datetime, rng: np.random.Generator) -> WellPad:
+    """Construct 4 wells with first_production offsets relative to CLI start."""
+    wells: list[Well] = []
+    for wid in WELL_IDS:
+        first_prod = start + timedelta(days=WELL_OFFSETS_DAYS[wid])
+        # Independent RNG per well so well composition stays reproducible regardless of run length
+        wrng = np.random.default_rng(int(rng.integers(0, 2**31 - 1)))
+        wells.append(Well(wid, first_prod, wrng))
+    return WellPad(wells)
 
-# ─────────────────────────────────────────────
-# DECLINE CURVE  (Arps hyperbolic)
-# q(t) = qi / (1 + b*Di*t)^(1/b)
-# Vaca Muerta typical: b=1.3-1.8, Di=0.008-0.015 /day
-# ─────────────────────────────────────────────
-def hyperbolic_decline(qi: float, b: float, Di: float, t_days: float) -> float:
-    """Arps hyperbolic decline. Returns rate at time t."""
-    if t_days <= 0:
-        return qi
-    return qi / (1 + b * Di * t_days) ** (1 / b)
 
-def add_noise(value: float, noise_pct: float, rng: np.random.Generator) -> float:
-    """Add gaussian noise proportional to value."""
-    sigma = abs(value) * noise_pct
-    return float(value + rng.normal(0, sigma))
+def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
+    rng = np.random.default_rng(cfg.seed)
+    bus = EventBus()
 
-# ─────────────────────────────────────────────
-# WELL STATE MACHINE
-# States: PRODUCING, SHUTDOWN, FLOWBACK, IDLE
-# ─────────────────────────────────────────────
-class WellState:
-    def __init__(self, well_cfg: dict, rng: np.random.Generator):
-        self.well_id = well_cfg["well_id"]
-        self.first_prod = datetime.fromisoformat(well_cfg["first_production"]).replace(tzinfo=timezone.utc)
-        self.lateral_m = well_cfg["lateral_length_m"]
-        self.stages = well_cfg["stages"]
-        self.rng = rng
-
-        # Decline curve params (slightly different per well)
-        self.qi_oil  = rng.uniform(60, 120)   # m³/day initial oil rate
-        self.qi_gas  = self.qi_oil * rng.uniform(300, 600)  # initial GOR
-        self.b       = rng.uniform(1.3, 1.8)
-        self.Di      = rng.uniform(0.008, 0.015)
-
-        # ESP params
-        self.nominal_freq = rng.uniform(50, 60)
-
-        self.state = "IDLE"
-        self.shutdown_end: datetime | None = None
-        self._shutdown_reason: str = ""
-
-    def maybe_trigger_event(self, ts: datetime) -> None:
-        """Random event triggers (shutdowns, alarms)."""
-        if self.state == "PRODUCING":
-            r = self.rng.random()
-            if r < 0.0003:    # ~0.03% per minute → ~1 event per ~2.3 days
-                duration_h = self.rng.uniform(2, 24)
-                self.state = "SHUTDOWN"
-                self.shutdown_end = ts + timedelta(hours=duration_h)
-                self._shutdown_reason = self.rng.choice([
-                    "HIGH_WHP", "ESP_GAS_LOCK", "SAND_PRODUCTION",
-                    "PLANNED_MAINTENANCE", "WELL_TEST"
-                ])
-        elif self.state == "SHUTDOWN":
-            if self.shutdown_end and ts >= self.shutdown_end:
-                self.state = "PRODUCING"
-                self._shutdown_reason = ""
-
-    def get_signals(self, ts: datetime) -> dict:
-        """Return a dict of all OT signals for this timestamp."""
-        t_days = max(0, (ts - self.first_prod).total_seconds() / 86400)
-
-        if ts < self.first_prod:
-            self.state = "IDLE"
-        elif self.state == "IDLE":
-            self.state = "PRODUCING"
-
-        self.maybe_trigger_event(ts)
-
-        is_producing = self.state == "PRODUCING"
-        factor = 1.0 if is_producing else 0.0
-
-        # Core rates from decline curve
-        oil  = hyperbolic_decline(self.qi_oil, self.b, self.Di, t_days) * factor
-        gor  = min(800, SIGNAL_RANGES["gor_m3m3"]["min"] + t_days * 0.3)  # GOR creep over time
-        gas  = oil * gor / 1000  # Mm³/day
-        wc   = min(0.45, 0.02 + t_days * 0.0003)  # watercut creep
-        water = oil * wc / (1 - wc) if wc < 1 else 0
-
-        # Pressure model (simplified: WHP follows production)
-        whp  = (30 + oil * 1.2) * factor + self.rng.uniform(-2, 2)
-        chp  = whp * 0.45 + self.rng.uniform(-1, 1)
-        downhole = 200 + oil * 1.8 + gas * 0.5
-
-        # ESP
-        freq  = (self.nominal_freq + oil * 0.08) * factor if is_producing else 0
-        curr  = (45 + freq * 0.9 + self.rng.uniform(-2, 2)) * factor if is_producing else 0
-
-        # Flowline temp (lags production changes)
-        temp  = (55 + oil * 0.25 + gas * 0.05) * factor if is_producing else 20
-
-        # Choke (open proportionally to rate, randomize slightly)
-        choke = min(100, 20 + oil * 0.65) * factor if is_producing else 0
-
-        def n(v, key): return add_noise(v, SIGNAL_RANGES[key]["noise_pct"], self.rng)
-
-        return {
-            "timestamp":          ts.isoformat(),
-            "well_id":            self.well_id,
-            "pad_id":             PAD_CONFIG["pad_id"],
-            "state":              self.state,
-            "shutdown_reason":    self._shutdown_reason,
-            "t_days_online":      round(t_days, 2),
-            "whp_bar":            round(n(whp,  "whp_bar"),  2),
-            "chp_bar":            round(n(chp,  "chp_bar"),  2),
-            "flowline_temp_c":    round(n(temp, "flowline_temp_c"), 2),
-            "oil_rate_m3d":       round(max(0, n(oil,  "oil_rate_m3d")),  2),
-            "gas_rate_mm3d":      round(max(0, n(gas,  "gas_rate_mm3d")), 3),
-            "water_rate_m3d":     round(max(0, n(water,"water_rate_m3d")),2),
-            "esp_current_a":      round(max(0, n(curr, "esp_current_a")), 2),
-            "esp_freq_hz":        round(max(0, n(freq, "esp_freq_hz")),   2),
-            "choke_pct":          round(max(0, min(100, n(choke,"choke_pct"))), 1),
-            "downhole_pres_bar":  round(n(downhole,"downhole_pres_bar"), 2),
-            "gor_m3m3":           round(gor, 1),
-            "watercut_frac":      round(wc, 4),
-        }
-
-# ─────────────────────────────────────────────
-# MAIN GENERATOR
-# ─────────────────────────────────────────────
-def generate_dataset(
-    start: datetime,
-    end: datetime,
-    freq_minutes: int = 1,
-    output_dir: Path = Path("../data/raw"),
-    upload_s3: bool = False,
-    s3_bucket: str = "vaca-muerta-raw",
-    s3_endpoint: str = "http://localhost:4566",
-) -> pd.DataFrame:
-
-    rng = np.random.default_rng(seed=42)
-    wells = [WellState(w, np.random.default_rng(seed=i+10)) for i, w in enumerate(PAD_CONFIG["wells"])]
-
-    timestamps = pd.date_range(start=start, end=end, freq=f"{freq_minutes}min", tz="UTC")
-    records = []
-
-    console.print(f"\n[bold cyan]Vaca Muerta Simulator[/bold cyan]")
-    console.print(f"  Pad:    {PAD_CONFIG['pad_id']} ({len(wells)} wells)")
-    console.print(f"  Period: {start.date()} → {end.date()}")
-    console.print(f"  Freq:   {freq_minutes} min  ({len(timestamps):,} timestamps × {len(wells)} wells = {len(timestamps)*len(wells):,} records)\n")
-
-    for ts in track(timestamps, description="Generating..."):
-        for well in wells:
-            records.append(well.get_signals(ts.to_pydatetime()))
-
-    df = pd.DataFrame(records)
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df["date"] = df["timestamp"].dt.date  # partition key
-
-    # Save local Parquet (partitioned by date)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for date, group in df.groupby("date"):
-        date_str = str(date)
-        part_path = output_dir / f"date={date_str}"
-        part_path.mkdir(exist_ok=True)
-        filepath = part_path / "data.parquet"
-        group.drop(columns=["date"]).to_parquet(filepath, index=False, engine="pyarrow")
-
-    total_files = len(df["date"].unique())
-    console.print(f"\n[green]✓ Saved {len(df):,} records → {total_files} Parquet files in {output_dir}[/green]")
-
-    # Upload to S3 (LocalStack or real AWS)
-    if upload_s3:
-        console.print(f"\n[yellow]Uploading to s3://{s3_bucket} ...[/yellow]")
-        s3 = boto3.client(
-            "s3",
-            endpoint_url=s3_endpoint,
-            region_name="us-east-1",
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
+    # Apply injections
+    if cfg.inject_sacada_at is not None:
+        bus.schedule_sacada(cfg.inject_sacada_at, cfg.sacada_reason, cfg.sacada_duration_h)
+    if cfg.inject_gas_lock_well and cfg.inject_gas_lock_at:
+        bus.inject_well_event(
+            cfg.inject_gas_lock_well,
+            cfg.inject_gas_lock_at,
+            WellEvent.GAS_LOCK,
+            cfg.gas_lock_duration_h,
         )
-        uploaded = 0
-        for date, group in df.groupby("date"):
-            date_str = str(date)
-            local_file = output_dir / f"date={date_str}" / "data.parquet"
-            s3_key = f"wells/pad=PAD-LLL-01/date={date_str}/data.parquet"
-            s3.upload_file(str(local_file), s3_bucket, s3_key)
-            uploaded += 1
-        console.print(f"[green]✓ Uploaded {uploaded} Parquet files to s3://{s3_bucket}[/green]")
 
-    return df
+    pad = _build_pad(cfg.start, rng)
+    plant = Plant(np.random.default_rng(int(rng.integers(0, 2**31 - 1))))
+    utils = Utilities(np.random.default_rng(int(rng.integers(0, 2**31 - 1))))
+
+    timestamps = pd.date_range(cfg.start, cfg.end, freq=f"{cfg.freq_minutes}min", tz="UTC", inclusive="left")
+
+    # ── Banner ───────────────────────────────────────────────────────
+    console.print(f"\n[bold cyan]Vaca Muerta Simulator v2[/bold cyan]")
+    console.print(f"  Pad:     {PAD_ID}  ({len(pad.wells)} wells)")
+    console.print(f"  Period:  {cfg.start.isoformat()} → {cfg.end.isoformat()}  ({cfg.freq_minutes}-min ticks)")
+    console.print(f"  Layers:  {', '.join(cfg.layers)}")
+    console.print(f"  Output:  {cfg.output_dir}")
+    console.print(f"  Upload:  {cfg.upload}")
+    if cfg.inject_sacada_at:
+        console.print(f"  [yellow]SACADA injected[/yellow]: {cfg.inject_sacada_at.isoformat()}  reason={cfg.sacada_reason.value}  duration={cfg.sacada_duration_h}h")
+    if cfg.inject_gas_lock_well:
+        console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
+    console.print()
+
+    well_recs: list[dict] = []
+    plant_recs: list[dict] = []
+    util_recs: list[dict] = []
+
+    do_wells = "wells" in cfg.layers
+    do_plant = "plant" in cfg.layers
+    do_utils = "utilities" in cfg.layers
+
+    t0 = time.perf_counter()
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Generating", total=len(timestamps))
+        for ts_pd in timestamps:
+            ts = ts_pd.to_pydatetime()
+            bus.tick(ts)
+            # Wells always run (their state feeds plant aggregate even if layer not exported)
+            w_recs = pad.step(ts, bus)
+            if do_wells:
+                well_recs.extend(w_recs)
+
+            if do_plant or do_utils:
+                inlet = pad.aggregate()
+                p_rec = plant.step(inlet, ts, bus)
+                if do_plant:
+                    plant_recs.append(p_rec)
+                if do_utils:
+                    util_recs.append(utils.step(p_rec, ts, bus))
+
+            progress.update(task, advance=1)
+    elapsed = time.perf_counter() - t0
+
+    # ── Build DataFrames ────────────────────────────────────────────
+    layer_dfs: dict[str, pd.DataFrame] = {
+        "wells": pd.DataFrame(well_recs),
+        "plant": pd.DataFrame(plant_recs),
+        "utilities": pd.DataFrame(util_recs),
+    }
+
+    # ── Write Parquet ───────────────────────────────────────────────
+    cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    for layer, df in layer_dfs.items():
+        n = write_layer_parquet(df, layer, cfg.output_dir)
+        if n > 0:
+            console.print(f"[green]✓[/green] {layer}: wrote {n} Parquet date-partitions")
+
+    # ── Upload (optional) ───────────────────────────────────────────
+    if cfg.upload != "none":
+        for layer, df in layer_dfs.items():
+            if df.empty:
+                continue
+            n = upload_layer_s3(cfg.output_dir, layer, cfg.upload)
+            console.print(f"[green]✓[/green] uploaded {n} files for layer '{layer}' → s3 ({cfg.upload})")
+
+    # ── Summary ─────────────────────────────────────────────────────
+    render_summary(layer_dfs, elapsed, cfg.output_dir)
+
+    return layer_dfs
 
 
 if __name__ == "__main__":
-    # Generamos 90 días de histórico a 1 minuto
-    START = datetime(2024, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
-    END   = datetime(2024, 6, 30, 23, 59, 0, tzinfo=timezone.utc)
-
-    df = generate_dataset(
-        start=START,
-        end=END,
-        freq_minutes=1,
-        output_dir=Path("../data/raw"),
-        upload_s3=True,
-        s3_bucket="vaca-muerta-raw",
-        s3_endpoint="http://localhost:4566",
-    )
-
-    # Preview
-    console.print("\n[bold]Sample (LLL-001, first 3 rows):[/bold]")
-    preview = df[df["well_id"] == "LLL-001"].head(3)
-    for _, row in preview.iterrows():
-        console.print(f"  {row['timestamp']}  oil={row['oil_rate_m3d']} m³/d  "
-                      f"whp={row['whp_bar']} bar  esp={row['esp_freq_hz']} Hz  state={row['state']}")
+    app()
