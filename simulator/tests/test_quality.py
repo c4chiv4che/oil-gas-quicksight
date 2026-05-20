@@ -124,14 +124,12 @@ class TestCompositionShift:
         total = shifted.c1 + shifted.c2 + shifted.c3 + shifted.c4 + shifted.c5_plus + shifted.co2 + shifted.n2
         assert total == pytest.approx(100.0, abs=1e-9)
 
-    def test_c1_pre_normalize_floor(self, wellhead_comp: GasComposition) -> None:
-        # The max(78.0, ...) clamp in composition_shift acts pre-normalize.
-        # Post-normalize, c1 may dip below 78 because the heavies inflate the total.
-        # We verify the floor mechanism works by picking a GOR that triggers it
-        # without making heavies dominate — drift = 0.5 at gor=800 → c1_pre = 84.
-        shifted = composition_shift(wellhead_comp, gor=800.0, t_days=10.0)
-        # At gor=800, drift=0.5 → c1_pre=84, heavies barely move → post-normalize c1≈83-84
-        assert shifted.c1 > 80.0
+    def test_c1_floor_holds_at_extreme_gor(self, wellhead_comp: GasComposition) -> None:
+        # Drift is clamped at 0.5 in composition_shift, so even unrealistic
+        # GORs can't crush c1 below the 78 floor after normalize().
+        for gor in (800.0, 2_000.0, 10_000.0):
+            shifted = composition_shift(wellhead_comp, gor=gor, t_days=10.0)
+            assert shifted.c1 >= 78.0, f"c1 fell below floor at gor={gor}: {shifted.c1}"
 
 
 # ── weighted_mix ──────────────────────────────────────────────────────────────

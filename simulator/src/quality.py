@@ -77,8 +77,11 @@ class GasComposition:
 
 def composition_shift(base: GasComposition, gor: float, t_days: float) -> GasComposition:
     """Rising GOR → slightly leaner gas (lower C1, higher C2-C5).  Subtle effect."""
-    # delta scales with how far GOR has moved from baseline 300
-    drift = max(0.0, (gor - 300.0) / 500.0) * 0.5      # bounded
+    # delta scales with how far GOR has moved from baseline 300.
+    # Clamp at 0.5 (the value already reached at gor=800, the top of the
+    # realistic 100-800 range) so unrealistic GORs don't crush the c1 floor
+    # after normalize().  Below gor=800 this clamp is a no-op.
+    drift = min(0.5, max(0.0, (gor - 300.0) / 500.0) * 0.5)
     c1 = max(78.0, base.c1 - drift * 4.0)
     c2 = base.c2 + drift * 2.0
     c3 = base.c3 + drift * 1.2

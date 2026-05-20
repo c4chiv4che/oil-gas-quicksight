@@ -164,12 +164,16 @@ class WellStateMachine:
             self.shutdown_reason = f"ESD:{bus.esd.reason.value if bus.esd.reason else ''}"
             return self.state
 
-        # 2. Injected event override
-        forced = bus.active_well_override(self.well_id, ts)
-        if forced is not None:
-            self.state = forced
-            self.shutdown_reason = f"INJECTED:{forced.value}"
-            return self.state
+        # 2. Injected event override.  Mirror random-event behaviour by also
+        # arming state_until = override.end_ts, so when the window expires
+        # step 4 recovers the well to FLOWBACK/PRODUCING (instead of leaving
+        # it stuck in the injected state forever).
+        for ov in bus.well_overrides.get(self.well_id, []):
+            if ov.start_ts <= ts < ov.end_ts:
+                self.state = ov.event
+                self.state_until = ov.end_ts
+                self.shutdown_reason = f"INJECTED:{ov.event.value}"
+                return self.state
 
         # 3. Lifecycle gating
         if ts < self.first_production:
