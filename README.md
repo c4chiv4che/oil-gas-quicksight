@@ -10,7 +10,9 @@
 
 End-to-end data engineering project that simulates a realistic Vaca Muerta shale operation (wellpad + gas processing plant + utilities) and lands the data in AWS for analysis with Athena and QuickSight.
 
-Built as a learning project to combine 15+ years of OT/industrial automation background with modern cloud data tooling.
+Built as a learning project to combine 4 years of OT/industrial automation experience with modern cloud data tooling, calibrated against training material authored by senior Argentinian O&G professionals.
+
+> **New to oil & gas?** Read the plain-language overview: [English](docs/OVERVIEW.md) · [Español](docs/OVERVIEW.es.md)
 
 ---
 
@@ -262,7 +264,7 @@ MIT.
 
 ## Disclaimer
 
-This is a **learning project**. The simulator generates synthetic data calibrated against public domain industry references; it does not represent any actual operating asset. The author has 15+ years of OT background in industrial automation but is using this project to learn modern cloud data engineering tooling.
+This is a **learning project**. The simulator generates synthetic data calibrated against public domain industry references; it does not represent any actual operating asset. The author has 4 years of OT experience in industrial automation and is using this project to learn modern cloud data engineering tooling. The domain knowledge (signal ranges, equipment behavior, NAG-602 compliance) is calibrated against training material authored by senior Argentinian O&G professionals (IAPG, ITP Neuquén).
 
 If you work in the Argentinian O&G industry and spot something physically incorrect, [open an issue](https://github.com/c4chiv4che/oil-gas-quicksight/issues) — feedback welcome.
 
