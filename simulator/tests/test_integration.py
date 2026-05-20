@@ -242,22 +242,19 @@ class TestGasLockInjection:
         assert (gl_rows["FT_GAS"] == 0.0).all()
         assert (gl_rows["FT_WATER"] == 0.0).all()
 
-    def test_gas_lock_is_sticky_after_window(self, gaslock_run: dict[str, pd.DataFrame]) -> None:
-        # NOTE: injected well events do NOT clear after their bus-window expires.
-        # WellStateMachine.transition() only resets self.state via step 4 when
-        # self.state_until is set (random events), or step 5/6 (IDLE/FLOWBACK→PRODUCING
-        # transitions). An injected GAS_LOCK leaves the well stuck in GAS_LOCK after
-        # the override expires. This is current source behaviour; this test pins it
-        # so any future change is intentional.
+    def test_gas_lock_recovers_after_window(self, gaslock_run: dict[str, pd.DataFrame]) -> None:
+        # Injected GAS_LOCK arms state_until = override.end_ts in
+        # WellStateMachine.transition(), so once the override window closes
+        # the well returns to FLOWBACK / PRODUCING on the next tick.
         wells = gaslock_run["wells"].copy()
         wells["timestamp"] = pd.to_datetime(wells["timestamp"])
         start = wells["timestamp"].min()
-        # 1h after injection-window ends, the override is no longer active, but
-        # the well's recorded state is still GAS_LOCK.
+        # Window: +6h → +10h. At +11h the well must no longer be GAS_LOCK.
         post = wells[(wells["well_id"] == "LLL-002") &
                      (wells["timestamp"] >= start + timedelta(hours=11))]
         assert not post.empty
-        assert (post["well_state"] == "GAS_LOCK").all()
+        assert (post["well_state"] != "GAS_LOCK").all()
+        assert (post["well_state"].isin({"FLOWBACK", "PRODUCING"})).all()
 
     def test_other_layers_unaffected_by_well_event(self, gaslock_run: dict[str, pd.DataFrame]) -> None:
         # A single-well gas lock should NOT trigger ESD on plant/utilities
