@@ -38,7 +38,7 @@ def write_layer_parquet(df: pd.DataFrame, layer: str, output_dir: Path) -> int:
     return n
 
 
-def upload_layer_s3(local_dir: Path, layer: str, target: str) -> int:
+def upload_layer_s3(local_dir: Path, layer: str, target: str) -> int:  # pragma: no cover
     """Upload all Parquet files for a layer to s3://{bucket}/{layer}/pad=.../date=.../data.parquet.
     target: 'local' (LocalStack) or 'aws' (real AWS)."""
     if target not in S3_BUCKETS:

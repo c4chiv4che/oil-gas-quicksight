@@ -12,3 +12,28 @@ dependencies = [
     "rich>=15.0.0",
     "typer>=0.12",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra -q --strict-markers"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/simulator_v1.py.bak",
+    "src/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
