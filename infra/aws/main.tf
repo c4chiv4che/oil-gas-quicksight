@@ -102,7 +102,7 @@ resource "aws_athena_workgroup" "oil_gas" {
   description = "Workgroup para queries de O&G"
 
   configuration {
-    enforce_workgroup_configuration    = true
+    enforce_workgroup_configuration    = false
     publish_cloudwatch_metrics_enabled = true
     result_configuration {
       output_location = "s3://${aws_s3_bucket.athena_results.bucket}/results/"

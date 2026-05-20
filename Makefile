@@ -7,12 +7,13 @@ SHELL       := /bin/bash
 AWS_PROFILE ?= oil-gas-dev
 AWS_REGION  ?= us-east-1
 S3_BUCKET   ?= vaca-muerta-raw-919064997947
+ATHENA_WG   ?= oil-gas-wg
 
 export AWS_PROFILE AWS_REGION
 
 .DEFAULT_GOAL := help
 
-.PHONY: help sim-smoke sim-full sim-upload sim-clean-local sim-clean-s3 \
+.PHONY: curated help sim-smoke sim-full sim-upload sim-clean-local sim-clean-s3 \
         crawl athena-test tf-plan tf-apply all
 
 help:  ## Show this help.
@@ -148,3 +149,50 @@ tf-apply:  ## terraform apply (with -refresh=false QS workaround).
 
 all: sim-clean-local sim-full sim-upload crawl athena-test  ## End-to-end: clean → generate → upload → crawl → query.
 	@echo ">> all: pipeline complete"
+
+curated:  ## Build the 4 curated tables (CTAS) into the curated bucket.
+	@echo ">> curated: building curated tables via CTAS"
+	@for f in analytics/curated/*.sql; do \
+		tbl=$$(grep -oE 'curated_[a-z0-9_]+' $$f | head -1); \
+		s3path=$$(grep -oE "external_location = 's3://[^']+'" $$f | sed "s/external_location = '//;s/'//"); \
+		echo ""; \
+		echo "  === $$tbl ==="; \
+		echo "  -> drop table if exists"; \
+		qid=$$(aws athena start-query-execution \
+			--query-string "DROP TABLE IF EXISTS oil_gas_db.$$tbl" \
+			--work-group $(ATHENA_WG) \
+			--query-execution-context Database=oil_gas_db \
+			--profile $(AWS_PROFILE) --region $(AWS_REGION) \
+			--query 'QueryExecutionId' --output text); \
+		while true; do \
+			st=$$(aws athena get-query-execution --query-execution-id $$qid \
+				--profile $(AWS_PROFILE) --region $(AWS_REGION) \
+				--query 'QueryExecution.Status.State' --output text); \
+			[ "$$st" != "RUNNING" ] && [ "$$st" != "QUEUED" ] && break; sleep 2; \
+		done; \
+		echo "  -> clearing S3 path $$s3path"; \
+		aws s3 rm "$$s3path" --recursive --profile $(AWS_PROFILE) --only-show-errors || true; \
+		echo "  -> running CTAS"; \
+		qid=$$(aws athena start-query-execution \
+			--query-string "$$(cat $$f)" \
+			--work-group $(ATHENA_WG) \
+			--query-execution-context Database=oil_gas_db \
+			--profile $(AWS_PROFILE) --region $(AWS_REGION) \
+			--query 'QueryExecutionId' --output text); \
+		while true; do \
+			st=$$(aws athena get-query-execution --query-execution-id $$qid \
+				--profile $(AWS_PROFILE) --region $(AWS_REGION) \
+				--query 'QueryExecution.Status.State' --output text); \
+			[ "$$st" != "RUNNING" ] && [ "$$st" != "QUEUED" ] && break; sleep 2; \
+		done; \
+		if [ "$$st" = "SUCCEEDED" ]; then \
+			echo "  OK: $$tbl created"; \
+		else \
+			echo "  FAILED: $$tbl"; \
+			aws athena get-query-execution --query-execution-id $$qid \
+				--profile $(AWS_PROFILE) --region $(AWS_REGION) \
+				--query 'QueryExecution.Status.StateChangeReason' --output text; \
+		fi; \
+	done
+	@echo ""
+	@echo ">> curated: done"
