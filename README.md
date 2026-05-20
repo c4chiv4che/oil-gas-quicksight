@@ -1,5 +1,13 @@
 # Vaca Muerta SCADA Simulator → AWS Analytics Pipeline
 
+[![Python Tests](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/python-tests.yml/badge.svg)](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/python-tests.yml)
+[![Terraform](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/terraform.yml/badge.svg)](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/terraform.yml)
+![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Terraform](https://img.shields.io/badge/terraform-1.5%2B-7B42BC)
+![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20Glue%20%7C%20Athena%20%7C%20QuickSight-FF9900)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 End-to-end data engineering project that simulates a realistic Vaca Muerta shale operation (wellpad + gas processing plant + utilities) and lands the data in AWS for analysis with Athena and QuickSight.
 
 Built as a learning project to combine 15+ years of OT/industrial automation background with modern cloud data tooling.
