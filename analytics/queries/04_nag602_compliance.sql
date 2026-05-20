@@ -1,9 +1,9 @@
 -- 04_nag602_compliance.sql
--- NAG-602 fiscal gas spec check across all non-SACADA minutes. Limits:
+-- NAG-602 fiscal gas spec check across all non-ESD minutes. Limits:
 --   PCS   (kcal/m³): 8850-10200
 --   Wobbe (kcal/m³): 11300-12470
 --   H2O   (mg/m³):   < 65
--- Filter sacada_phase = 'INACTIVE' so transient ESD/depressurization
+-- Filter esd_phase = 'INACTIVE' so transient ESD/depressurization
 -- minutes do not pollute the spec stats. Expected: very low off-spec
 -- counts when the plant is running normally.
 SELECT
@@ -17,4 +17,4 @@ SELECT
   ROUND(MIN(ai_wobbe), 1)                        AS wobbe_min,
   ROUND(MAX(ai_wobbe), 1)                        AS wobbe_max
 FROM oil_gas_db.plant
-WHERE sacada_phase = 'INACTIVE';
+WHERE esd_phase = 'INACTIVE';

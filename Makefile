@@ -30,14 +30,14 @@ sim-smoke:  ## Run simulator with defaults (30d/5min, smoke).
 	cd simulator && uv run python -m src.simulator
 
 # Full deterministic 180d/1min run anchored to the canonical S3 window
-# (2025-11-20 → 2026-05-19), with SACADA + gas-lock injects baked in so
+# (2025-11-20 → 2026-05-19), with ESD + gas-lock injects baked in so
 # `make all` is idempotent.
-sim-full:  ## Full 180d/1min run with SACADA + gas-lock injects.
-	@echo ">> sim-full: 180d/1min from 2025-11-20 with SACADA + gas-lock"
+sim-full:  ## Full 180d/1min run with ESD + gas-lock injects.
+	@echo ">> sim-full: 180d/1min from 2025-11-20 with ESD + gas-lock"
 	cd simulator && uv run python -m src.simulator \
 	  --days 180 --freq 1 --start 2025-11-20T00:00:00 \
-	  --inject-sacada 2026-03-15T14:00:00 \
-	  --sacada-reason FIRE_GAS_HIGH --sacada-duration-h 6 \
+	  --inject-esd 2026-03-15T14:00:00 \
+	  --esd-reason FIRE_GAS_HIGH --esd-duration-h 6 \
 	  --inject-gas-lock LLL-002:2026-04-10T08:00:00
 
 # Sync the three local layers to S3 in parallel. Fails the target if any
@@ -48,7 +48,7 @@ sim-upload:  ## Sync wells/plant/utilities to S3 in parallel.
 	pids=(); \
 	for layer in wells plant utilities; do \
 	  echo "  -> syncing $$layer"; \
-	  aws s3 sync simulator/data/raw/$$layer/ s3://$(S3_BUCKET)/$$layer/ \
+	  aws s3 sync data/raw/$$layer/ s3://$(S3_BUCKET)/$$layer/ \
 	    --region $(AWS_REGION) --only-show-errors & \
 	  pids+=($$!); \
 	done; \
@@ -58,9 +58,9 @@ sim-upload:  ## Sync wells/plant/utilities to S3 in parallel.
 	echo "OK: all 3 layers synced"
 
 # Delete the local parquet output for the three layers.
-sim-clean-local:  ## Remove local simulator/data/raw/{wells,plant,utilities}.
+sim-clean-local:  ## Remove local data/raw/{wells,plant,utilities}.
 	@echo ">> sim-clean-local: removing local raw output"
-	rm -rf simulator/data/raw/wells simulator/data/raw/plant simulator/data/raw/utilities
+	rm -rf data/raw/wells data/raw/plant data/raw/utilities
 
 # Delete the three layers from S3 (with confirmation prompt).
 sim-clean-s3:  ## Recursively delete wells/plant/utilities prefixes in S3 (prompts).
@@ -114,8 +114,8 @@ athena-test:  ## Run analytics/queries/*.sql in order against Athena.
 	@echo ">> athena-test: running 5 analytics queries"
 	@set -e; \
 	for q in analytics/queries/01_overview.sql \
-	         analytics/queries/02_sacada_timeline.sql \
-	         analytics/queries/03_flare_during_sacada.sql \
+	         analytics/queries/02_esd_timeline.sql \
+	         analytics/queries/03_flare_during_esd.sql \
 	         analytics/queries/04_nag602_compliance.sql \
 	         analytics/queries/05_well_lifecycle.sql; do \
 	  echo ""; \

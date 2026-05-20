@@ -148,7 +148,7 @@ DEFAULTS = {
     "upload": "none",                             # none | local | aws
     "output_dir": "../data/raw",
     "seed": 42,
-    "sacada_duration_h": 4.0,
+    "esd_duration_h": 4.0,
     "well_event_duration_h": (1.0, 6.0),          # GAS_LOCK 1-6h per spec §5.1
 }
 

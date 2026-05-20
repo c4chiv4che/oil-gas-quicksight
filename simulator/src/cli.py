@@ -10,7 +10,7 @@ from typing import Optional
 import typer
 
 from .config import DEFAULTS
-from .events import SacadaReason, WellEvent
+from .events import ESDReason, WellEvent
 
 
 app = typer.Typer(add_completion=False, help="Vaca Muerta shale ops simulator v2 (wells + plant + utilities).")
@@ -25,9 +25,9 @@ class RunConfig:
     upload: str
     output_dir: Path
     seed: int
-    inject_sacada_at: Optional[datetime]
-    sacada_reason: SacadaReason
-    sacada_duration_h: float
+    inject_esd_at: Optional[datetime]
+    esd_reason: ESDReason
+    esd_duration_h: float
     inject_gas_lock_well: Optional[str]
     inject_gas_lock_at: Optional[datetime]
     gas_lock_duration_h: float
@@ -49,14 +49,14 @@ def main(
     upload: str = typer.Option(DEFAULTS["upload"], help="none | local | aws."),
     output_dir: Path = typer.Option(Path(DEFAULTS["output_dir"]), help="Local output root for Parquet."),
     seed: int = typer.Option(DEFAULTS["seed"], help="RNG seed."),
-    inject_sacada: Optional[str] = typer.Option(
+    inject_esd: Optional[str] = typer.Option(
         None, help='ISO datetime to trigger a plant ESD, e.g. "2026-04-15T14:00:00".',
     ),
-    sacada_reason: SacadaReason = typer.Option(
-        SacadaReason.EXTERNAL_TRIP, help="SACADA cause for --inject-sacada.",
+    esd_reason: ESDReason = typer.Option(
+        ESDReason.EXTERNAL_TRIP, help="ESD cause for --inject-esd.",
     ),
-    sacada_duration_h: float = typer.Option(
-        DEFAULTS["sacada_duration_h"], help="SACADA duration before recovery starts.",
+    esd_duration_h: float = typer.Option(
+        DEFAULTS["esd_duration_h"], help="ESD duration before recovery starts.",
     ),
     inject_gas_lock: Optional[str] = typer.Option(
         None,
@@ -82,7 +82,7 @@ def main(
     end_dt = start_dt + timedelta(days=days)
 
     # ── Parse injects ───────────────────────────────────────────────
-    sacada_at = _parse_iso_utc(inject_sacada) if inject_sacada else None
+    esd_at = _parse_iso_utc(inject_esd) if inject_esd else None
     gas_lock_well: Optional[str] = None
     gas_lock_at: Optional[datetime] = None
     if inject_gas_lock:
@@ -105,9 +105,9 @@ def main(
         upload=upload,
         output_dir=output_dir,
         seed=seed,
-        inject_sacada_at=sacada_at,
-        sacada_reason=sacada_reason,
-        sacada_duration_h=sacada_duration_h,
+        inject_esd_at=esd_at,
+        esd_reason=esd_reason,
+        esd_duration_h=esd_duration_h,
         inject_gas_lock_well=gas_lock_well,
         inject_gas_lock_at=gas_lock_at,
         gas_lock_duration_h=gas_lock_duration_h,

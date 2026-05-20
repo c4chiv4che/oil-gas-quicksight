@@ -229,8 +229,8 @@ ISA 5.1 tag naming convention. Real Vaca Muerta horizontal shale wells with ESP 
 | COMP_SURGE | close to surge curve | anti-surge valve opens | auto-recovers |
 | COMP_HIGH_VIB | VT_COMP > 7 mm/s | trip compressor | shutdown seq |
 
-### 5.3 SACADA (Plant ESD/Shutdown) — Major event
-**Triggers** (logged in `sacada_reason`):
+### 5.3 ESD (Emergency Shutdown) — Major event
+**Triggers** (logged in `esd_reason`):
 - `FIRE_GAS_HIGH` — Fire & Gas detector > 60% LEL
 - `HIGH_H2S` — H2S > 10 ppm in process area
 - `HIGH_HIGH_PRESSURE` — any PT_HHH alarm (e.g. PT_SEP > 15 bar)
@@ -241,7 +241,7 @@ ISA 5.1 tag naming convention. Real Vaca Muerta horizontal shale wells with ESP 
 - `EXTERNAL_TRIP` — operator manual ESD
 - `PLANNED_MAINTENANCE` — scheduled
 
-**Sequence on SACADA:**
+**Sequence on ESD:**
 1. T+0s — All ESD valves go to fail-safe (gas: closed; flare: open)
 2. T+0-30s — Wellhead SDVs close → all well rates → 0
 3. T+0-60s — Plant inventory depressurizes to flare (HP_FLARE spike 100-200 Mm³/d for 10-20 min)
@@ -303,7 +303,7 @@ uv run src/simulator.py --upload local                     # Upload to LocalStac
 uv run src/simulator.py --upload aws                       # Upload to AWS real
 uv run src/simulator.py --days 365 --freq 1 --start 2024-01-01
 uv run src/simulator.py --layers wells,plant               # Subset
-uv run src/simulator.py --inject-sacada 2024-03-15T14:00:00 --sacada-reason FIRE_GAS_HIGH
+uv run src/simulator.py --inject-esd 2024-03-15T14:00:00 --esd-reason FIRE_GAS_HIGH
 uv run src/simulator.py --inject-gas-lock LLL-002 2024-04-10T08:00:00
 ```
 

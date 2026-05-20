@@ -1,4 +1,4 @@
-"""Event state machines: well-level, plant-level, and SACADA (plant ESD)."""
+"""Event state machines: well-level, plant-level, and ESD (plant ESD)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ class PlantEvent(StrEnum):
     COMP_HIGH_VIB = "COMP_HIGH_VIB"
 
 
-class SacadaReason(StrEnum):
+class ESDReason(StrEnum):
     FIRE_GAS_HIGH = "FIRE_GAS_HIGH"
     HIGH_H2S = "HIGH_H2S"
     HIGH_HIGH_PRESSURE = "HIGH_HIGH_PRESSURE"
@@ -43,7 +43,7 @@ class SacadaReason(StrEnum):
     PLANNED_MAINTENANCE = "PLANNED_MAINTENANCE"
 
 
-class SacadaPhase(StrEnum):
+class ESDPhase(StrEnum):
     INACTIVE = "INACTIVE"
     TRIP = "TRIP"                       # T+0s, ESD valves to fail-safe
     DEPRESSURE = "DEPRESSURE"           # T+0-60s, plant inventory to flare
@@ -53,37 +53,37 @@ class SacadaPhase(StrEnum):
     RECOVERY = "RECOVERY"               # 30-90 min ramp-up
 
 
-# Phase boundary offsets from sacada start_ts
-_SACADA_BOUNDARIES = [
-    (timedelta(seconds=0),  SacadaPhase.TRIP),
-    (timedelta(seconds=30), SacadaPhase.DEPRESSURE),
-    (timedelta(minutes=2),  SacadaPhase.COMPRESSOR_TRIP),
-    (timedelta(minutes=5),  SacadaPhase.UTILITIES_DOWN),
-    (timedelta(minutes=20), SacadaPhase.HOLD),     # flare HP spike lasts 10-20 min per spec
+# Phase boundary offsets from esd start_ts
+_ESD_BOUNDARIES = [
+    (timedelta(seconds=0),  ESDPhase.TRIP),
+    (timedelta(seconds=30), ESDPhase.DEPRESSURE),
+    (timedelta(minutes=2),  ESDPhase.COMPRESSOR_TRIP),
+    (timedelta(minutes=5),  ESDPhase.UTILITIES_DOWN),
+    (timedelta(minutes=20), ESDPhase.HOLD),     # flare HP spike lasts 10-20 min per spec
 ]
 
 
 @dataclass
-class SacadaState:
+class ESDState:
     active: bool = False
-    reason: Optional[SacadaReason] = None
+    reason: Optional[ESDReason] = None
     start_ts: Optional[datetime] = None
     end_ts: Optional[datetime] = None          # planned recovery start
     recovery_duration: timedelta = timedelta(minutes=60)
 
-    def phase(self, ts: datetime) -> SacadaPhase:
+    def phase(self, ts: datetime) -> ESDPhase:
         if not self.active or self.start_ts is None:
-            return SacadaPhase.INACTIVE
+            return ESDPhase.INACTIVE
         if ts < self.start_ts:                           # scheduled but not yet fired
-            return SacadaPhase.INACTIVE
+            return ESDPhase.INACTIVE
         if self.end_ts is not None and ts >= self.end_ts:
             elapsed_recovery = ts - self.end_ts
             if elapsed_recovery >= self.recovery_duration:
-                return SacadaPhase.INACTIVE
-            return SacadaPhase.RECOVERY
+                return ESDPhase.INACTIVE
+            return ESDPhase.RECOVERY
         elapsed = ts - self.start_ts
-        current = SacadaPhase.HOLD
-        for delta, ph in _SACADA_BOUNDARIES:
+        current = ESDPhase.HOLD
+        for delta, ph in _ESD_BOUNDARIES:
             if elapsed >= delta:
                 current = ph
             else:
@@ -92,7 +92,7 @@ class SacadaState:
 
     def is_shutdown(self, ts: datetime) -> bool:
         ph = self.phase(ts)
-        return ph not in (SacadaPhase.INACTIVE, SacadaPhase.RECOVERY)
+        return ph not in (ESDPhase.INACTIVE, ESDPhase.RECOVERY)
 
     def recovery_progress(self, ts: datetime) -> float:
         """0.0 → 1.0 across the recovery window. Returns 1.0 when fully recovered."""
@@ -112,11 +112,11 @@ class WellOverride:
 @dataclass
 class EventBus:
     """Central event coordinator.  Wells, plant, and utilities all read state from here."""
-    sacada: SacadaState = field(default_factory=SacadaState)
+    esd: ESDState = field(default_factory=ESDState)
     well_overrides: dict[str, list[WellOverride]] = field(default_factory=dict)
 
-    def schedule_sacada(self, ts: datetime, reason: SacadaReason, duration_h: float) -> None:
-        self.sacada = SacadaState(
+    def schedule_esd(self, ts: datetime, reason: ESDReason, duration_h: float) -> None:
+        self.esd = ESDState(
             active=True,
             reason=reason,
             start_ts=ts,
@@ -136,12 +136,12 @@ class EventBus:
         return None
 
     def tick(self, ts: datetime) -> None:
-        """Advance time-based state. Currently SacadaState.phase() is computed on demand,
+        """Advance time-based state. Currently ESDState.phase() is computed on demand,
         so nothing to do here besides expiring overrides (handled lazily in active_well_override)."""
-        if self.sacada.active and self.sacada.end_ts is not None:
-            recovery_done = ts >= self.sacada.end_ts + self.sacada.recovery_duration
+        if self.esd.active and self.esd.end_ts is not None:
+            recovery_done = ts >= self.esd.end_ts + self.esd.recovery_duration
             if recovery_done:
-                self.sacada = SacadaState()  # clear
+                self.esd = ESDState()  # clear
 
 
 class WellStateMachine:
@@ -158,10 +158,10 @@ class WellStateMachine:
         self.shutdown_reason: str = ""
 
     def transition(self, ts: datetime, bus: EventBus) -> WellEvent:
-        # 1. SACADA broadcast → all wells shut down (trip → end of recovery)
-        if bus.sacada.is_shutdown(ts):
+        # 1. ESD broadcast → all wells shut down (trip → end of recovery)
+        if bus.esd.is_shutdown(ts):
             self.state = WellEvent.SHUTDOWN
-            self.shutdown_reason = f"SACADA:{bus.sacada.reason.value if bus.sacada.reason else ''}"
+            self.shutdown_reason = f"ESD:{bus.esd.reason.value if bus.esd.reason else ''}"
             return self.state
 
         # 2. Injected event override

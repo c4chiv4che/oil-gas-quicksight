@@ -87,7 +87,7 @@ documentation lives in `.github/ISSUE_TEMPLATE/quicksight_bug.md`.
   Pending AWS support for the account region / quota before enabling.
 - **QuickSight v2 dashboards**: build cross-layer dashboards once the
   `plant` and `utilities` SPICE datasets are added alongside `wells`
-  (3-layer SACADA timeline, NAG-602 compliance panel, flare/hot-oil
+  (3-layer ESD timeline, NAG-602 compliance panel, flare/hot-oil
   cross-layer view).
 - **LocalStack parity**: keep `infra/localstack/` in sync as a free
   iteration path for non-QuickSight changes (QS has no LocalStack emulator).

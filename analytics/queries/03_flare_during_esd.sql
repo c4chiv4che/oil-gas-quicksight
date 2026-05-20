@@ -1,5 +1,5 @@
--- 03_flare_during_sacada.sql
--- Cross-layer behavior during the SACADA window
+-- 03_flare_during_esd.sql
+-- Cross-layer behavior during the ESD window
 -- (2026-03-15T14:00:00 → 2026-03-15T20:00:00, 6h):
 --   - HP flare (ft_flare_hp) should spike as plant inventory depressurizes.
 --   - Hot-oil supply temperature (tt_hotoil_supply) should drop below the

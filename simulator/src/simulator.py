@@ -47,8 +47,8 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     bus = EventBus()
 
     # Apply injections
-    if cfg.inject_sacada_at is not None:
-        bus.schedule_sacada(cfg.inject_sacada_at, cfg.sacada_reason, cfg.sacada_duration_h)
+    if cfg.inject_esd_at is not None:
+        bus.schedule_esd(cfg.inject_esd_at, cfg.esd_reason, cfg.esd_duration_h)
     if cfg.inject_gas_lock_well and cfg.inject_gas_lock_at:
         bus.inject_well_event(
             cfg.inject_gas_lock_well,
@@ -70,8 +70,8 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     console.print(f"  Layers:  {', '.join(cfg.layers)}")
     console.print(f"  Output:  {cfg.output_dir}")
     console.print(f"  Upload:  {cfg.upload}")
-    if cfg.inject_sacada_at:
-        console.print(f"  [yellow]SACADA injected[/yellow]: {cfg.inject_sacada_at.isoformat()}  reason={cfg.sacada_reason.value}  duration={cfg.sacada_duration_h}h")
+    if cfg.inject_esd_at:
+        console.print(f"  [yellow]ESD injected[/yellow]: {cfg.inject_esd_at.isoformat()}  reason={cfg.esd_reason.value}  duration={cfg.esd_duration_h}h")
     if cfg.inject_gas_lock_well:
         console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
     console.print()

@@ -10,7 +10,7 @@ import numpy as np
 
 from . import physics
 from .config import PAD_ID, SIGNAL_RANGES
-from .events import EventBus, SacadaPhase
+from .events import EventBus, ESDPhase
 
 
 def _noisy(value: float, tag: str, rng: np.random.Generator,
@@ -33,12 +33,12 @@ class Utilities:
         self.zt_fuel_valve = 55.0
 
     def step(self, plant_state: dict, ts: datetime, bus: EventBus) -> dict:
-        sacada_phase = bus.sacada.phase(ts)
-        sacada_active = bus.sacada.is_shutdown(ts)
-        sacada_reason = bus.sacada.reason.value if (sacada_active and bus.sacada.reason) else ""
+        esd_phase = bus.esd.phase(ts)
+        esd_active = bus.esd.is_shutdown(ts)
+        esd_reason = bus.esd.reason.value if (esd_active and bus.esd.reason) else ""
 
         # ── §4.1 HOT OIL ─────────────────────────────────────────
-        if sacada_phase in (SacadaPhase.UTILITIES_DOWN, SacadaPhase.HOLD):
+        if esd_phase in (ESDPhase.UTILITIES_DOWN, ESDPhase.HOLD):
             # heater shut down — supply T decays
             supply_T = 130.0
             return_T = 120.0
@@ -46,8 +46,8 @@ class Utilities:
             stack_T = 160.0
             o2_stack = 18.0           # cold heater → atmospheric O2 in stack
             fuel_valve = 5.0
-        elif sacada_phase == SacadaPhase.RECOVERY:
-            frac = bus.sacada.recovery_progress(ts)
+        elif esd_phase == ESDPhase.RECOVERY:
+            frac = bus.esd.recovery_progress(ts)
             supply_T = 130.0 + (260.0 - 130.0) * frac
             return_T = 120.0 + (200.0 - 120.0) * frac
             ft_hotoil = 5.0 + 50.0 * frac
@@ -66,7 +66,7 @@ class Utilities:
         pt_hotoil = 4.5 + self.rng.normal(0, 0.15)
 
         # ── §4.2 INSTRUMENT AIR ─────────────────────────────────
-        if sacada_reason == "INSTRUMENT_AIR_LOSS":
+        if esd_reason == "INSTRUMENT_AIR_LOSS":
             pt_ia = 3.0 + self.rng.normal(0, 0.2)
             dewpoint_ia = -10.0
             self.lt_ia_accum = max(10.0, self.lt_ia_accum - 0.5)
@@ -79,12 +79,12 @@ class Utilities:
 
         # ── §4.3 FLARE / ANTORCHA ───────────────────────────────
         # HP flare spike per spec §5.3 step 3 — 100-200 Mm³/d for 10-20 min during DEPRESSURE → COMPRESSOR_TRIP → UTILITIES_DOWN
-        if sacada_phase in (SacadaPhase.TRIP, SacadaPhase.DEPRESSURE, SacadaPhase.COMPRESSOR_TRIP):
+        if esd_phase in (ESDPhase.TRIP, ESDPhase.DEPRESSURE, ESDPhase.COMPRESSOR_TRIP):
             ft_flare_hp = float(self.rng.uniform(120.0, 200.0))
             ft_flare_lp = float(self.rng.uniform(20.0, 40.0))
             smoke = float(self.rng.uniform(15.0, 30.0))
             self.lt_ko_drum = min(80.0, self.lt_ko_drum + 4.0)
-        elif sacada_phase in (SacadaPhase.UTILITIES_DOWN, SacadaPhase.HOLD):
+        elif esd_phase in (ESDPhase.UTILITIES_DOWN, ESDPhase.HOLD):
             ft_flare_hp = float(self.rng.uniform(5.0, 25.0))   # tail-off
             ft_flare_lp = float(self.rng.uniform(5.0, 15.0))
             smoke = float(self.rng.uniform(2.0, 10.0))
@@ -103,8 +103,8 @@ class Utilities:
         return {
             "timestamp": ts,
             "pad_id": PAD_ID,
-            "sacada_phase": sacada_phase.value,
-            "sacada_reason": sacada_reason,
+            "esd_phase": esd_phase.value,
+            "esd_reason": esd_reason,
             # Hot oil
             "TT_HOTOIL_SUPPLY": _noisy(supply_T, "TT_HOTOIL_SUPPLY", self.rng, lo=100.0, hi=300.0),
             "TT_HOTOIL_RETURN": _noisy(return_T, "TT_HOTOIL_RETURN", self.rng, lo=80.0, hi=240.0),

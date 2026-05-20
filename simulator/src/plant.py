@@ -10,7 +10,7 @@ import numpy as np
 
 from . import physics, quality
 from .config import PAD_ID, SIGNAL_RANGES
-from .events import EventBus, PlantEvent, SacadaPhase
+from .events import EventBus, PlantEvent, ESDPhase
 from .quality import GasComposition
 from .wells import InletStream
 
@@ -47,10 +47,10 @@ class Plant:
         # Plant-level event flag
         self.plant_event = PlantEvent.NORMAL
 
-    def _update_event(self, sacada_phase: SacadaPhase) -> None:
+    def _update_event(self, esd_phase: ESDPhase) -> None:
         """Pick a plant-level event flag from current state (priority order)."""
-        if sacada_phase not in (SacadaPhase.INACTIVE, SacadaPhase.RECOVERY):
-            self.plant_event = PlantEvent.NORMAL  # SACADA dominates; plant_event reset
+        if esd_phase not in (ESDPhase.INACTIVE, ESDPhase.RECOVERY):
+            self.plant_event = PlantEvent.NORMAL  # ESD dominates; plant_event reset
             return
         if self.lt_sep_oil > 75:
             self.plant_event = PlantEvent.HIGH_SEP_LEVEL
@@ -60,15 +60,15 @@ class Plant:
             self.plant_event = PlantEvent.NORMAL
 
     def step(self, inlet: InletStream, ts: datetime, bus: EventBus) -> dict:
-        sacada_phase = bus.sacada.phase(ts)
-        sacada_active = bus.sacada.is_shutdown(ts)
-        recovery_frac = bus.sacada.recovery_progress(ts) if sacada_phase == SacadaPhase.RECOVERY else 0.0
+        esd_phase = bus.esd.phase(ts)
+        esd_active = bus.esd.is_shutdown(ts)
+        recovery_frac = bus.esd.recovery_progress(ts) if esd_phase == ESDPhase.RECOVERY else 0.0
 
-        # During SACADA shutdown phases (TRIP/DEPRESSURE/COMPRESSOR_TRIP/UTILITIES_DOWN/HOLD)
+        # During ESD shutdown phases (TRIP/DEPRESSURE/COMPRESSOR_TRIP/UTILITIES_DOWN/HOLD)
         # inventory drops; almost no through-flow.
-        if sacada_active:
+        if esd_active:
             flow_factor = 0.0
-        elif sacada_phase == SacadaPhase.RECOVERY:
+        elif esd_phase == ESDPhase.RECOVERY:
             flow_factor = recovery_frac        # 0 → 1 during recovery
         else:
             flow_factor = 1.0
@@ -104,7 +104,7 @@ class Plant:
         pdt_sep = 100.0 + inlet_gas * 0.2
 
         # ── §3.3 TEG DEHYDRATION ────────────────────────────────────
-        ft_teg_circ = 1200.0 + self.rng.normal(0, 30) - (0 if sacada_phase == SacadaPhase.INACTIVE else 400.0)
+        ft_teg_circ = 1200.0 + self.rng.normal(0, 30) - (0 if esd_phase == ESDPhase.INACTIVE else 400.0)
         tt_contactor = SIGNAL_RANGES["TT_CONTACTOR"]["sp"] + self.rng.normal(0, 0.5)
         pt_contactor = pt_sep * 6.0
         tt_reboiler = SIGNAL_RANGES["TT_REBOILER"]["sp"] + self.rng.normal(0, 0.8)
@@ -135,7 +135,7 @@ class Plant:
         dew_hc = physics.clip(dew_hc, -15.0, -2.0)
 
         # ── §3.5 PROPANE REFRIGERATION ─────────────────────────────
-        if sacada_active:
+        if esd_active:
             pt_prop_suct = 0.5
             pt_prop_disch = 8.0
             si_prop_comp = 0.0
@@ -160,7 +160,7 @@ class Plant:
         ai_rvp = 10.0 + (220.0 - tt_stab_bot) * 0.05            # higher bottom T → lower RVP
 
         # ── §3.7 CENTRIFUGAL COMPRESSION ───────────────────────────
-        if sacada_active:
+        if esd_active:
             self.comp_speed = 0.0
             zt_antisurge = 100.0       # fully open during ESD
             ft_recycle = 0.0
@@ -203,14 +203,14 @@ class Plant:
         s_total = fiscal_comp.total_sulfur_mg_m3()
 
         # Update plant event flag based on freshly-computed levels
-        self._update_event(sacada_phase)
+        self._update_event(esd_phase)
 
         return {
             "timestamp": ts,
             "pad_id": PAD_ID,
             "plant_event": self.plant_event.value,
-            "sacada_phase": sacada_phase.value,
-            "sacada_reason": bus.sacada.reason.value if (sacada_active and bus.sacada.reason) else "",
+            "esd_phase": esd_phase.value,
+            "esd_reason": bus.esd.reason.value if (esd_active and bus.esd.reason) else "",
             # Inlet
             "PT_INLET":   _noisy(pt_inlet, "PT_INLET", self.rng),
             "TT_INLET":   _noisy(tt_inlet, "TT_INLET", self.rng),

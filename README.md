@@ -141,7 +141,7 @@ make all
 │       ├── config.py               # Pad/well/signal constants, S3 buckets
 │       ├── physics.py              # Arps decline, GOR creep, hydrate curves, anti-surge
 │       ├── quality.py              # GasComposition, PCS/Wobbe/density, TEG, LTS
-│       ├── events.py               # WellEvent/PlantEvent/SacadaReason enums, ESD state machine
+│       ├── events.py               # WellEvent/PlantEvent/ESDReason enums, ESD state machine
 │       ├── wells.py                # Layer 1: 4 wells with state machines
 │       ├── plant.py                # Layer 2: 8 plant unit sections
 │       ├── utilities.py            # Layer 3: hot oil + IA + flare
@@ -185,8 +185,8 @@ Five Athena queries run as part of `make athena-test` and confirm the simulator 
 | # | Query                       | Validates                                              |
 |---|-----------------------------|--------------------------------------------------------|
 | 1 | `01_overview.sql`           | Row counts and date ranges per layer                   |
-| 2 | `02_sacada_timeline.sql`    | 8-step ESD sequence: DEPRESSURE → COMPRESSOR_TRIP → UTILITIES_DOWN → HOLD → RECOVERY |
-| 3 | `03_flare_during_sacada.sql`| HP flare spike to ~140-176 Mm³/d during depressurization; hot oil drop from 260°C to 130°C |
+| 2 | `02_esd_timeline.sql`    | 8-step ESD sequence: DEPRESSURE → COMPRESSOR_TRIP → UTILITIES_DOWN → HOLD → RECOVERY |
+| 3 | `03_flare_during_esd.sql`| HP flare spike to ~140-176 Mm³/d during depressurization; hot oil drop from 260°C to 130°C |
 | 4 | `04_nag602_compliance.sql`  | PCS within 8850-10200 kcal/m³ (✓); Wobbe Index above 12470 limit (intentional dashboard signal) |
 | 5 | `05_well_lifecycle.sql`     | IDLE → FLOWBACK → PRODUCING transitions; injected GAS_LOCK appears on LLL-002 only |
 
@@ -201,7 +201,7 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 - Simulator v2 — 3-layer modular architecture
 - LocalStack-based dev environment (S3 only, community edition)
 - Real AWS deployment via Terraform (S3, Glue, Athena, IAM)
-- ESD/SACADA state machine with realistic 8-step sequence
+- ESD state machine with realistic 8-step sequence
 - Gas quality propagation with NAG-602 compliance checks
 - Glue Crawler covering all 3 layers
 - 5 validated Athena queries
@@ -212,7 +212,6 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 
 - **QuickSight v2 dashboards** — multi-layer ESD timeline, flare analytics, fiscal gas quality vs NAG-602
 - **Amazon Timestream** integration — AWS Support ticket open to enable LiveAnalytics on the account
-- **Refactor** — rename `SACADA` to `ESD` throughout codebase (typo; ITP Neuquén uses ESD)
 
 ### 🐛 Known issues
 
