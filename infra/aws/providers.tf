@@ -18,8 +18,8 @@ provider "aws" {
       env     = "dev"
       owner   = "c4chiv4che"
       managed = "terraform"
-      purpose   = "learning"
-      repo      = "github.com/c4chiv4che/oil-gas-quicksight"
+      purpose = "learning"
+      repo    = "github.com/c4chiv4che/oil-gas-quicksight"
     }
   }
 }
