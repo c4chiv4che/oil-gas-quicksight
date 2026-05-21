@@ -1,0 +1,68 @@
+[
+  {
+    "esd_phase": "TRIP",
+    "esd_reason": "FIRE_GAS_HIGH",
+    "minutes_in_phase": 1,
+    "phase_start": "2026-03-15 14:00:00.000",
+    "phase_end": "2026-03-15 14:00:00.000",
+    "peak_flare_hp_mm3d": 195.9,
+    "avg_flare_hp_mm3d": 195.9,
+    "min_hotoil_supply_c": 264.2,
+    "max_hotoil_supply_c": 264.2
+  },
+  {
+    "esd_phase": "DEPRESSURE",
+    "esd_reason": "FIRE_GAS_HIGH",
+    "minutes_in_phase": 1,
+    "phase_start": "2026-03-15 14:01:00.000",
+    "phase_end": "2026-03-15 14:01:00.000",
+    "peak_flare_hp_mm3d": 165.5,
+    "avg_flare_hp_mm3d": 165.5,
+    "min_hotoil_supply_c": 258.5,
+    "max_hotoil_supply_c": 258.5
+  },
+  {
+    "esd_phase": "COMPRESSOR_TRIP",
+    "esd_reason": "FIRE_GAS_HIGH",
+    "minutes_in_phase": 3,
+    "phase_start": "2026-03-15 14:02:00.000",
+    "phase_end": "2026-03-15 14:04:00.000",
+    "peak_flare_hp_mm3d": 178.0,
+    "avg_flare_hp_mm3d": 164.8,
+    "min_hotoil_supply_c": 258.6,
+    "max_hotoil_supply_c": 264.4
+  },
+  {
+    "esd_phase": "UTILITIES_DOWN",
+    "esd_reason": "FIRE_GAS_HIGH",
+    "minutes_in_phase": 15,
+    "phase_start": "2026-03-15 14:05:00.000",
+    "phase_end": "2026-03-15 14:19:00.000",
+    "peak_flare_hp_mm3d": 24.3,
+    "avg_flare_hp_mm3d": 16.8,
+    "min_hotoil_supply_c": 129.0,
+    "max_hotoil_supply_c": 130.6
+  },
+  {
+    "esd_phase": "HOLD",
+    "esd_reason": "FIRE_GAS_HIGH",
+    "minutes_in_phase": 340,
+    "phase_start": "2026-03-15 14:20:00.000",
+    "phase_end": "2026-03-15 19:59:00.000",
+    "peak_flare_hp_mm3d": 25.0,
+    "avg_flare_hp_mm3d": 15.0,
+    "min_hotoil_supply_c": 129.0,
+    "max_hotoil_supply_c": 131.3
+  },
+  {
+    "esd_phase": "RECOVERY",
+    "esd_reason": "",
+    "minutes_in_phase": 60,
+    "phase_start": "2026-03-15 20:00:00.000",
+    "phase_end": "2026-03-15 20:59:00.000",
+    "peak_flare_hp_mm3d": 1.2,
+    "avg_flare_hp_mm3d": 0.5,
+    "min_hotoil_supply_c": 129.1,
+    "max_hotoil_supply_c": 258.8
+  }
+]
