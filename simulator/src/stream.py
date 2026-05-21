@@ -50,7 +50,10 @@ class SendStats:
 def _json_default(obj: Any) -> Any:
     """JSON fallback for types the simulator emits but json.dumps can't handle."""
     if isinstance(obj, datetime):
-        return obj.isoformat()
+        # Firehose JSON->Parquet conversion expects Athena/Glue's native
+        # timestamp format ("yyyy-MM-dd HH:mm:ss"), not ISO 8601 with a "T"
+        # separator or timezone offset.
+        return obj.strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):

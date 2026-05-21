@@ -69,10 +69,14 @@ def _make_record(well_id: str, i: int = 0) -> dict:
 # ── Serialization ─────────────────────────────────────────────────────────────
 
 class TestSerialization:
-    def test_timestamp_becomes_iso8601_string(self) -> None:
+    def test_timestamp_serialized_for_glue(self) -> None:
+        # Firehose JSON->Parquet rejects ISO 8601 with "T" / tz offset; it expects
+        # Athena/Glue's native "yyyy-MM-dd HH:mm:ss" format.
         data, pk = serialize_record(_make_record("LLL-001"))
         decoded = json.loads(data)
-        assert decoded["timestamp"] == "2026-04-15T14:00:00+00:00"
+        assert decoded["timestamp"] == "2026-04-15 14:00:00"
+        assert "T" not in decoded["timestamp"]
+        assert "+" not in decoded["timestamp"]
         assert pk == "LLL-001"
 
     def test_numpy_scalars_serialized(self) -> None:
