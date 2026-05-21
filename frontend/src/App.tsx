@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSimulationClock } from "./sim/useSimulationClock";
 import { useSimStore } from "./sim/simStore";
 import { useAssetStore } from "./state/assetStore";
 import { loadWells } from "./data/dataSource";
 import { ClockProbe } from "./components/ClockProbe";
 import { ValueSymbol } from "./symbols/ValueSymbol";
+import { TrendSymbol } from "./symbols/TrendSymbol";
+import type { TrendConfig } from "./symbols/trendConfig";
 import type { HmiThemeName } from "./theme/theme";
 import "./theme/theme.css";
 
@@ -14,7 +16,26 @@ export default function App() {
 
   const initWindow = useSimStore((s) => s.initWindow);
   const setWellList = useAssetStore((s) => s.setWellList);
+  const windowStart = useSimStore((s) => s.windowStart);
+  const windowEnd = useSimStore((s) => s.windowEnd);
   const [theme, setTheme] = useState<HmiThemeName>("isa101");
+
+  // Demo trend config. Memoized so TrendSymbol's effect deps stay stable
+  // across unrelated re-renders (theme toggle, etc.).
+  const trendConfig = useMemo<TrendConfig | null>(() => {
+    if (!windowStart || !windowEnd) return null;
+    return {
+      id: "demo-rates",
+      title: "Production rates",
+      from: windowStart,
+      to: windowEnd,
+      series: [
+        { tag: "ft_oil", axis: "left" },
+        { tag: "ft_gas", axis: "right" },
+      ],
+      showLimits: true,
+    };
+  }, [windowStart, windowEnd]);
 
   // Apply the selected theme to the root element so [data-hmi-theme]
   // CSS selectors take effect across the whole app.
@@ -91,6 +112,13 @@ export default function App() {
         <ValueSymbol tag="tt_flow" />
         <ValueSymbol tag="well_state" />
       </div>
+
+      {/* Trend probe — two-series, multi-axis trend on activeWell. */}
+      {trendConfig && (
+        <div style={{ marginTop: "24px", maxWidth: "960px" }}>
+          <TrendSymbol config={trendConfig} />
+        </div>
+      )}
     </div>
   );
 }

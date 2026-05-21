@@ -1,0 +1,34 @@
+/* TrendSymbol — outer chrome and uPlot overrides.
+ *
+ * uPlot ships its own CSS (imported from uPlot.min.css). These rules
+ * override colors/backgrounds inside an .hmi-trend wrapper only, so
+ * the rest of the page isn't affected.
+ */
+
+.hmi-trend {
+  background: var(--hmi-surface-2);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  box-sizing: border-box;
+}
+
+/* Kill uPlot's default white backgrounds; the wrapper provides bg. */
+.hmi-trend .uplot,
+.hmi-trend .u-wrap,
+.hmi-trend .u-over,
+.hmi-trend .u-under {
+  background: transparent;
+}
+
+/* Cursor: vertical line only, themed. Horizontal is hidden via cursor.y=false. */
+.hmi-trend .u-cursor-x {
+  background: var(--hmi-cursor);
+  opacity: 0.7;
+}
+
+/* Hide cursor value bubbles and legend (Phase 1). */
+.hmi-trend .u-legend {
+  display: none;
+}
