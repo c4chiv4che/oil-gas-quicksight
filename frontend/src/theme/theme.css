@@ -1,0 +1,93 @@
+/* ============================================================
+   HMI THEME — process visualization token system
+   ============================================================
+   Two selectable visualization philosophies via [data-hmi-theme]
+   on the root element:
+
+   - isa101:        low contrast, neutral background, color ONLY for
+                    abnormal conditions. Reduces operator fatigue and
+                    makes alarms stand out. Based on ISA-101 / EEMUA 191.
+   - high-contrast: saturated color for process states (including the
+                    normal one), traditional HMI/SCADA look. Familiar
+                    to operators used to classic control panels.
+
+   Luminosity axis (light/dark): NOT implemented in Phase 1, but the
+   token architecture supports it without touching components — just
+   add another [data-hmi-theme="..."] or [data-hmi-mode] selector.
+
+   GOLDEN RULE (both modes): the data is the truth. State color is
+   DERIVED from limits, never hardcoded per component. Components
+   consume var(--state-*), not raw hex.
+   ============================================================ */
+
+/* ---------- ISA-101 (default) ---------- */
+:root,
+[data-hmi-theme="isa101"] {
+  /* backgrounds: neutral blue-gray, NOT pure black (less fatigue) */
+  --hmi-bg:        #1a1d21;  /* page */
+  --hmi-surface:   #20242a;  /* boxes, panels */
+  --hmi-surface-2: #181b1f;  /* recessed: trend background */
+  --hmi-header:    #23272e;  /* title bar */
+  --hmi-border:    #2e333b;  /* panel borders */
+  --hmi-border-2:  #3d4450;  /* emphasis borders */
+
+  /* text */
+  --hmi-text:      #d4d8dd;  /* primary / normal values */
+  --hmi-text-muted:#8b919a;  /* labels, units, hints */
+
+  /* PROCESS STATES (derived from limits) */
+  --state-normal:  #d4d8dd;  /* ISA: normal = NEUTRAL, draws no attention */
+  --state-stale:   #6b7280;  /* inactive / shutdown / unrefreshed data */
+  --state-warn:    #e8a317;  /* low-priority alarm */
+  --state-alarm:   #ff5b5b;  /* high-priority alarm / off-spec / trip */
+
+  /* tinted backgrounds for boxes in alarm (subtle in ISA) */
+  --state-warn-bg:  #20242a;
+  --state-alarm-bg: #2a1414;
+  --state-warn-border:  #6b5410;
+  --state-alarm-border: #8a2020;
+
+  /* trend traces / informational */
+  --hmi-trace-a:   #4a9eff;  /* series A */
+  --hmi-trace-b:   #e8a317;  /* series B */
+  --hmi-accent:    #4a9eff;  /* selection, focus, links */
+  --hmi-cursor:    #c8ccd2;  /* trend cursor (neutral in ISA) */
+}
+
+/* ---------- HIGH-CONTRAST ---------- */
+[data-hmi-theme="high-contrast"] {
+  /* darker, bluer backgrounds, classic panel look */
+  --hmi-bg:        #0a1018;
+  --hmi-surface:   #0e1826;
+  --hmi-surface-2: #0a1322;
+  --hmi-header:    #0f2138;
+  --hmi-border:    #1c3050;
+  --hmi-border-2:  #2f5a8f;
+
+  --hmi-text:      #e6eef9;
+  --hmi-text-muted:#7f97b8;
+
+  /* STATES: here the normal one IS color (green), traditional style */
+  --state-normal:  #35c46b;  /* HC: producing/normal = vivid green */
+  --state-stale:   #5a6678;
+  --state-warn:    #ffc02e;
+  --state-alarm:   #ff4d4d;
+
+  --state-warn-bg:  #2a2410;
+  --state-alarm-bg: #2e1212;
+  --state-warn-border:  #7a6010;
+  --state-alarm-border: #9a2424;
+
+  --hmi-trace-a:   #2f9bff;
+  --hmi-trace-b:   #21d4a8;
+  --hmi-accent:    #1e6feb;
+  --hmi-cursor:    #ff4d4d;  /* red cursor, more dramatic */
+}
+
+/* app base */
+body {
+  margin: 0;
+  background: var(--hmi-bg);
+  color: var(--hmi-text);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
