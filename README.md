@@ -30,6 +30,8 @@ A full **ESD (Emergency Shutdown) state machine** simulates 8-step plant trip se
 
 Data lands in S3 (Parquet, date-partitioned), gets crawled into Glue, and is queryable via Athena. QuickSight datasets are wired but the v2 multi-layer dashboard is pending.
 
+A parallel **streaming pipeline** (Kinesis → Firehose JSON→Parquet → `streaming_*` Glue tables) lets the same simulator feed Athena as a live data stream rather than a finished file. Streaming infrastructure is operated **on-demand** (applied for a demo, then destroyed) — see [Streaming runbook](docs/ARCHITECTURE.md#streaming-runbook-on-demand).
+
 ---
 
 ## Architecture
@@ -45,16 +47,19 @@ flowchart TB
         P -.->|plant state| U
     end
 
-    SIM ==>|"Parquet<br/>date-partitioned"| SYNC["aws s3 sync<br/>(3 layers in parallel)"]
+    SIM ==>|"Parquet<br/>(default)"| SYNC["aws s3 sync<br/>(3 layers in parallel)"]
+    SIM ==>|"--stream<br/>(JSON)"| KIN["Kinesis × 3<br/>vaca-muerta-{layer}-stream"]
 
     subgraph AWS["☁️ AWS"]
         direction TB
         S3["S3 (raw)<br/>vaca-muerta-raw-*"]
-        GC["Glue Crawler<br/>vaca-muerta-crawler"]
-        CAT["Glue Catalog<br/>oil_gas_db<br/>(3 tables)"]
+        FH["Firehose × 3<br/>JSON → Parquet"]
+        GC["Glue Crawlers<br/>batch + streaming"]
+        CAT["Glue Catalog<br/>oil_gas_db<br/>(wells, plant, utilities,<br/>streaming_*)"]
         AT["Athena<br/>workgroup: oil-gas-wg"]
         QS["QuickSight<br/>Standard Edition"]
 
+        FH --> S3
         S3 --> GC
         GC --> CAT
         CAT --> AT
@@ -62,11 +67,14 @@ flowchart TB
     end
 
     SYNC ==> S3
+    KIN ==> FH
 
     classDef sim fill:#1e3a5f,stroke:#4a9eff,color:#fff
     classDef aws fill:#3d2817,stroke:#ff9900,color:#fff
+    classDef stream fill:#2d1f3d,stroke:#b46aff,color:#fff
     class W,P,U sim
     class S3,GC,CAT,AT,QS aws
+    class KIN,FH stream
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
@@ -217,11 +225,15 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 - 5 validated Athena queries
 - Automation layer (Makefile, run scripts, CI)
 - QuickSight Author user + Athena data source + initial `wells` dataset
+- **Kinesis streaming pipeline** — Kinesis Data Streams + Firehose JSON→Parquet + dedicated streaming crawlers for all 3 layers (operated on-demand)
+- **Two-identity IAM model** — narrow `oil-gas-dev` runtime policy + documented `oil-gas-deploy-policy` for admin operations
+- Comprehensive test suite — 190 automated tests, 93% coverage
 
 ### 🚧 Pending
 
 - **QuickSight v2 dashboards** — multi-layer ESD timeline, flare analytics, fiscal gas quality vs NAG-602
 - **Amazon Timestream** integration — AWS Support ticket open to enable LiveAnalytics on the account
+- **Live demo page** — recorded dataset replayed as a simulated real-time feed against a statically-served frontend, so the live-data story is visible without leaving streaming infrastructure running 24/7
 
 ### 🐛 Known issues
 
@@ -243,16 +255,19 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 
 ## Cost
 
-Current monthly AWS cost: **~$0.50/month** (mostly QuickSight Standard, pre-existing on the account).
+Steady-state monthly AWS cost: **~$9.30/month** (QuickSight Standard + everything else <$0.30 combined).
 
 - S3: <$0.01/month (~130 MB total)
 - Glue Crawler: ~$0.04 per crawl (run on-demand)
 - Athena: ~$0.05 per 5 queries (~30 MB scanned each)
 - QuickSight Standard: $9/month (1 author seat, already active)
+- Kinesis streaming: **~$33/month if left on 24/7** (3 streams × $11/mo per shard) — operated **on-demand**, so steady-state contribution is ~$0
 
-Total project marginal cost since starting: <$0.10.
+Total project marginal cost since starting: <$0.50.
 
-A CloudWatch billing alarm at $10/month is configured (`oil-gas-billing-10usd`).
+A CloudWatch billing alarm at $10/month is configured (`oil-gas-billing-10usd`) — bringing streaming up will trip it within a day if you forget to tear it down.
+
+See [docs/ARCHITECTURE.md → Cost](docs/ARCHITECTURE.md#cost) for the full table.
 
 ---
 

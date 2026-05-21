@@ -28,6 +28,8 @@ Como no tenemos una planta real conectada, el proyecto incluye un **simulador**:
 
 Los datos son lo suficientemente realistas como para que aparezcan los patrones que un operador de sala de control reconocería: pozos declinando con el tiempo, una parada de emergencia de planta, gas que se sale de especificación de calidad, vibración de equipos que va creciendo.
 
+El mismo simulador también puede transmitir sus datos en vivo a medida que los genera —como una planta real alimenta su sala de control— de modo que los tableros puedan correr sobre un flujo en marcha en lugar de un archivo terminado.
+
 ---
 
 ## Las tres capas
@@ -95,7 +97,7 @@ Un conjunto especial de mediciones rastrea las **paradas de emergencia** (ESD, p
 
 - Un generador de datos realista basado en normas reales de la industria
 - Infraestructura de nube automatizada y reproducible (nada hecho a mano que no se pueda repetir)
-- Una base de código testeada y profesional (160 pruebas automatizadas)
+- Una base de código testeada y profesional (190 pruebas automatizadas)
 - Un diseño consciente del costo (funciona por menos de USD 1/mes)
 - Separación limpia entre datos crudos, resúmenes curados y tableros
 

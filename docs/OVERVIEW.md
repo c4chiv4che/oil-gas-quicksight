@@ -28,6 +28,8 @@ Since we don't have a real plant wired up, the project includes a **simulator**:
 
 The data is realistic enough that the patterns a real control-room operator would recognize are all there: wells declining over time, a plant emergency shutdown, gas going out of quality spec, equipment vibration creeping up.
 
+The same simulator can also stream its data live as it's generated — the way a real plant feeds its control room — so the dashboards can be driven by a running feed instead of a finished file.
+
 ---
 
 ## The three layers
@@ -95,7 +97,7 @@ A special set of readings tracks plant **emergency shutdowns** (ESD): the automa
 
 - A realistic data generator grounded in real industry standards
 - Automated, repeatable cloud infrastructure (nothing done by hand that can't be reproduced)
-- A tested, professional codebase (160 automated tests)
+- A tested, professional codebase (190 automated tests)
 - A cost-conscious design (runs for under USD 1/month)
 - Clean separation between raw data, curated summaries, and dashboards
 

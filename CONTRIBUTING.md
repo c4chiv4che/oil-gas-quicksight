@@ -28,6 +28,33 @@ cd simulator && uv run pytest && cd ..
 make sim-smoke
 ```
 
+## AWS profiles (two-identity model)
+
+Two AWS CLI profiles are required for full development:
+
+- **`default`** — admin / deploy credentials. Used by Terraform when applying anything that touches IAM, Kinesis, Firehose, CloudWatch Logs, or the QuickSight account subscription. Override `var.aws_profile` per-invocation:
+
+  ```bash
+  TF_VAR_aws_profile=default terraform apply
+  ```
+
+- **`oil-gas-dev`** — runtime credentials, narrowly scoped (S3 R/W on the three project buckets, Glue read, Athena query, Kinesis produce on the three layer streams). Used by the simulator/producer, the QuickSight author session, and the `terraform plan` refresh path. This is the default value of `var.aws_profile`, so no override is needed for read-only operations.
+
+Configure both:
+
+```bash
+aws configure --profile default       # admin / deploy keys
+aws configure --profile oil-gas-dev   # runtime keys
+```
+
+The producer always runs as the runtime user:
+
+```bash
+uv run python -m src.simulator --days 1 --freq 30 --stream --profile oil-gas-dev
+```
+
+See [`docs/ARCHITECTURE.md` → Deployment & permissions model](docs/ARCHITECTURE.md#deployment--permissions-model) for the policy ARNs and a documented trade-off about the `default` profile being the admin identity in this lab setup.
+
 ## Running tests
 
 ```bash
