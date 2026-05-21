@@ -24,5 +24,3 @@ output "runtime_policy_arn" {
   description = "ARN of the oil-gas-dev runtime managed policy (attached to oil-gas-dev). Replaces the 7 legacy inline policies on that user."
   value       = aws_iam_policy.runtime.arn
 }
-# output "timestream_database"  { value = aws_timestreamwrite_database.oil_gas.database_name }
-# output "timestream_table"     { value = aws_timestreamwrite_table.well_signals.table_name }

@@ -110,22 +110,3 @@ resource "aws_athena_workgroup" "oil_gas" {
   }
 }
 
-## ─── TIMESTREAM ──────────────────────────────────────────────────────────────
-
-## resource "aws_timestreamwrite_database" "oil_gas" {
-# database_name = "oil-gas-db"
-#}
-
-## resource "aws_timestreamwrite_table" "well_signals" {
-## database_name = aws_timestreamwrite_database.oil_gas.database_name
-# table_name    = "well-signals"
-
-#retention_properties {
-# memory_store_retention_period_in_hours = 24      # 1 día en memoria (más rápido/caro)
-#magnetic_store_retention_period_in_days = 365    # 1 año en disco (más barato)
-#}
-
-#magnetic_store_write_properties {
-#enable_magnetic_store_writes = true
-#}
-#}
