@@ -66,6 +66,31 @@ def _make_record(well_id: str, i: int = 0) -> dict:
     }
 
 
+def _make_plant_record() -> dict:
+    """Minimal plant-shaped record: pad-level aggregate, no well_id."""
+    return {
+        "timestamp": datetime(2026, 4, 15, 14, 0, 0, tzinfo=timezone.utc),
+        "pad_id": "PAD-LLL-01",
+        "plant_event": "NORMAL",
+        "esd_phase": "INACTIVE",
+        "esd_reason": "",
+        "PT_INLET": 49.8,
+        "TT_INLET": 42.1,
+    }
+
+
+def _make_utilities_record() -> dict:
+    """Minimal utilities-shaped record: pad-level aggregate, no well_id."""
+    return {
+        "timestamp": datetime(2026, 4, 15, 14, 0, 0, tzinfo=timezone.utc),
+        "pad_id": "PAD-LLL-01",
+        "esd_phase": "INACTIVE",
+        "esd_reason": "",
+        "TT_HOTOIL_SUPPLY": 260.0,
+        "PT_IA_HEADER": 8.5,
+    }
+
+
 # ── Serialization ─────────────────────────────────────────────────────────────
 
 class TestSerialization:
@@ -103,6 +128,77 @@ class TestSerialization:
         rec = {"well_id": "LLL-001", "blob": "x" * (1024 * 1024 + 200_000)}
         with pytest.raises(ValueError, match="1 MiB"):
             serialize_record(rec)
+
+
+# ── Multi-layer serialization (plant / utilities use pad_id as partition key) ─
+
+class TestMultiLayerSerialization:
+    """Locks in the contract that all three layers share the same Glue-native
+    timestamp format and that pad_id can be used as the partition key field for
+    layers that don't have well_id (plant, utilities)."""
+
+    def test_plant_record_uses_pad_id_partition_key(self) -> None:
+        data, pk = serialize_record(_make_plant_record(), partition_key_field="pad_id")
+        assert pk == "PAD-LLL-01"
+        decoded = json.loads(data)
+        assert decoded["pad_id"] == "PAD-LLL-01"
+
+    def test_utilities_record_uses_pad_id_partition_key(self) -> None:
+        data, pk = serialize_record(_make_utilities_record(), partition_key_field="pad_id")
+        assert pk == "PAD-LLL-01"
+        decoded = json.loads(data)
+        assert decoded["pad_id"] == "PAD-LLL-01"
+
+    def test_plant_timestamp_glue_native_format(self) -> None:
+        # Critical: Firehose JSON->Parquet conversion expects the same Glue/Athena
+        # native format ("yyyy-MM-dd HH:mm:ss") that we already verified for wells.
+        # This lock-in catches a regression where the fix gets reverted on the
+        # plant/utilities branches.
+        data, _ = serialize_record(_make_plant_record(), partition_key_field="pad_id")
+        decoded = json.loads(data)
+        assert decoded["timestamp"] == "2026-04-15 14:00:00"
+        assert "T" not in decoded["timestamp"]
+        assert "+" not in decoded["timestamp"]
+
+    def test_utilities_timestamp_glue_native_format(self) -> None:
+        data, _ = serialize_record(_make_utilities_record(), partition_key_field="pad_id")
+        decoded = json.loads(data)
+        assert decoded["timestamp"] == "2026-04-15 14:00:00"
+        assert "T" not in decoded["timestamp"]
+        assert "+" not in decoded["timestamp"]
+
+    def test_plant_missing_pad_id_raises(self) -> None:
+        rec = _make_plant_record()
+        del rec["pad_id"]
+        with pytest.raises(ValueError, match="pad_id"):
+            serialize_record(rec, partition_key_field="pad_id")
+
+    def test_default_partition_key_field_is_well_id(self) -> None:
+        # Back-compat: existing callers that don't pass partition_key_field still get well_id behaviour.
+        _, pk = serialize_record(_make_record("LLL-007"))
+        assert pk == "LLL-007"
+
+
+class TestKinesisProducerPartitionKey:
+    """The producer must thread partition_key_field through to serialize_record."""
+
+    def test_producer_with_pad_id_field_emits_pad_id_partition_key(self) -> None:
+        fake = FakeKinesisClient()
+        prod = KinesisProducer(
+            "vaca-muerta-plant-stream",
+            client=fake,
+            sleep_fn=_no_sleep,
+            partition_key_field="pad_id",
+        )
+        prod.send([_make_plant_record()])
+        assert fake.calls[0]["StreamName"] == "vaca-muerta-plant-stream"
+        assert fake.calls[0]["Records"][0]["PartitionKey"] == "PAD-LLL-01"
+
+    def test_producer_defaults_to_well_id(self) -> None:
+        fake = FakeKinesisClient()
+        prod = KinesisProducer("vaca-muerta-wells-stream", client=fake, sleep_fn=_no_sleep)
+        prod.send([_make_record("LLL-002")])
+        assert fake.calls[0]["Records"][0]["PartitionKey"] == "LLL-002"
 
 
 # ── Batching ──────────────────────────────────────────────────────────────────
@@ -258,3 +354,129 @@ class TestSendStats:
         assert a.batches == 2
         assert a.retries == 2
         assert a.failed_after_retries == 1
+
+
+# ── Multi-layer dispatch (simulator-level, no real AWS) ───────────────────────
+
+class TestSimulatorMultiLayerDispatch:
+    """End-to-end: cfg.stream=True with all three layers wires up one producer
+    per layer, each bound to the right stream name and partition_key_field.
+    Patches src.simulator.KinesisProducer to capture dispatch without boto3."""
+
+    def _run_with_fakes(self, monkeypatch, tmp_path):
+        import io
+        from datetime import datetime, timezone
+        from pathlib import Path
+        from rich.console import Console
+
+        from src import output as output_module
+        from src import simulator as simulator_module
+        from src.cli import RunConfig
+        from src.events import ESDReason
+
+        # Silence rich output
+        sink = Console(file=io.StringIO(), force_terminal=False, force_jupyter=False,
+                       record=False, quiet=False, width=120)
+        monkeypatch.setattr(simulator_module, "console", sink)
+        monkeypatch.setattr(output_module, "console", sink)
+
+        instances: dict[str, "FakeProducer"] = {}
+
+        class FakeProducer:
+            def __init__(self, *, stream_name, region, profile, partition_key_field):
+                self.stream_name = stream_name
+                self.partition_key_field = partition_key_field
+                self.sent: list[dict] = []
+                # Track instantiation by stream name
+                instances[stream_name] = self
+
+            def send(self, records):
+                self.sent.extend(records)
+                return SendStats(total_sent=len(records), batches=1)
+
+        monkeypatch.setattr(simulator_module, "KinesisProducer", FakeProducer)
+
+        start = datetime(2026, 4, 15, 0, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2026, 4, 15, 2, 0, 0, tzinfo=timezone.utc)  # 2 hours
+        cfg = RunConfig(
+            start=start, end=end, freq_minutes=60,
+            layers=("wells", "plant", "utilities"),
+            upload="none", output_dir=Path(tmp_path), seed=42,
+            inject_esd_at=None, esd_reason=ESDReason.EXTERNAL_TRIP, esd_duration_h=4.0,
+            inject_gas_lock_well=None, inject_gas_lock_at=None, gas_lock_duration_h=3.0,
+            stream=True, no_local=False, profile="oil-gas-dev",
+        )
+        simulator_module.run(cfg)
+        return instances
+
+    def test_one_producer_per_streamed_layer(self, monkeypatch, tmp_path) -> None:
+        instances = self._run_with_fakes(monkeypatch, tmp_path)
+        assert set(instances.keys()) == {
+            "vaca-muerta-wells-stream",
+            "vaca-muerta-plant-stream",
+            "vaca-muerta-utilities-stream",
+        }
+
+    def test_per_layer_partition_key_field(self, monkeypatch, tmp_path) -> None:
+        instances = self._run_with_fakes(monkeypatch, tmp_path)
+        assert instances["vaca-muerta-wells-stream"].partition_key_field == "well_id"
+        assert instances["vaca-muerta-plant-stream"].partition_key_field == "pad_id"
+        assert instances["vaca-muerta-utilities-stream"].partition_key_field == "pad_id"
+
+    def test_records_routed_to_their_layer_stream(self, monkeypatch, tmp_path) -> None:
+        instances = self._run_with_fakes(monkeypatch, tmp_path)
+        # 2 hours × 60-min ticks = 2 ticks
+        # wells: 4 wells × 2 ticks = 8 records ; plant/utilities: 2 records each
+        assert len(instances["vaca-muerta-wells-stream"].sent) == 8
+        assert len(instances["vaca-muerta-plant-stream"].sent) == 2
+        assert len(instances["vaca-muerta-utilities-stream"].sent) == 2
+
+        # Spot-check shape: wells records carry well_id, plant/utilities carry pad_id
+        assert all("well_id" in r for r in instances["vaca-muerta-wells-stream"].sent)
+        assert all("pad_id" in r for r in instances["vaca-muerta-plant-stream"].sent)
+        assert all("pad_id" in r for r in instances["vaca-muerta-utilities-stream"].sent)
+
+    def test_subset_of_layers_only_streams_those(self, monkeypatch, tmp_path) -> None:
+        """--stream with --layers plant,utilities should NOT instantiate the wells producer."""
+        import io
+        from datetime import datetime, timezone
+        from pathlib import Path
+        from rich.console import Console
+
+        from src import output as output_module
+        from src import simulator as simulator_module
+        from src.cli import RunConfig
+        from src.events import ESDReason
+
+        sink = Console(file=io.StringIO(), force_terminal=False, force_jupyter=False,
+                       record=False, quiet=False, width=120)
+        monkeypatch.setattr(simulator_module, "console", sink)
+        monkeypatch.setattr(output_module, "console", sink)
+
+        instances: dict[str, str] = {}
+
+        class FakeProducer:
+            def __init__(self, *, stream_name, region, profile, partition_key_field):
+                instances[stream_name] = partition_key_field
+
+            def send(self, records):
+                return SendStats(total_sent=len(records), batches=1)
+
+        monkeypatch.setattr(simulator_module, "KinesisProducer", FakeProducer)
+
+        start = datetime(2026, 4, 15, 0, 0, 0, tzinfo=timezone.utc)
+        cfg = RunConfig(
+            start=start, end=start.replace(hour=1), freq_minutes=60,
+            layers=("plant", "utilities"),
+            upload="none", output_dir=Path(tmp_path), seed=42,
+            inject_esd_at=None, esd_reason=ESDReason.EXTERNAL_TRIP, esd_duration_h=4.0,
+            inject_gas_lock_well=None, inject_gas_lock_at=None, gas_lock_duration_h=3.0,
+            stream=True, no_local=False, profile="oil-gas-dev",
+        )
+        simulator_module.run(cfg)
+
+        assert "vaca-muerta-wells-stream" not in instances
+        assert set(instances.keys()) == {
+            "vaca-muerta-plant-stream",
+            "vaca-muerta-utilities-stream",
+        }

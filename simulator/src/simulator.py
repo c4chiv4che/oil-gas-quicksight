@@ -12,7 +12,6 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -33,6 +32,20 @@ from .utilities import Utilities
 from .wells import Well, WellPad
 
 console = Console()
+
+# Partition key per layer for Kinesis PutRecords.
+# Wells use well_id (high cardinality → good shard distribution).
+# Plant/utilities are pad-level aggregates; single-pad lab → pad_id is the
+# only sensible key. With 1 shard per stream this has no throughput impact.
+PARTITION_KEY_FIELDS = {
+    "wells":     "well_id",
+    "plant":     "pad_id",
+    "utilities": "pad_id",
+}
+
+
+def _stream_name_for(layer: str) -> str:
+    return f"vaca-muerta-{layer}-stream"
 
 
 def _build_pad(start: datetime, rng: np.random.Generator) -> WellPad:
@@ -79,18 +92,22 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     if cfg.inject_gas_lock_well:
         console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
     if cfg.stream:
-        console.print(f"  [cyan]Streaming[/cyan]: → {cfg.stream_name}  (profile={cfg.profile}, local-wells={'off' if cfg.no_local else 'on'})")
+        streamed = ", ".join(_stream_name_for(l) for l in cfg.layers)
+        console.print(f"  [cyan]Streaming[/cyan]: → {streamed}  (profile={cfg.profile}, local={'off' if cfg.no_local else 'on'})")
     console.print()
 
-    # ── Kinesis producer (only if --stream) ─────────────────────────
-    producer: Optional[KinesisProducer] = None
-    stream_stats = SendStats()
+    # ── Kinesis producers (one per streamed layer) ──────────────────
+    producers: dict[str, KinesisProducer] = {}
+    stream_stats: dict[str, SendStats] = {}
     if cfg.stream:
-        producer = KinesisProducer(
-            stream_name=cfg.stream_name,
-            region="us-east-1",
-            profile=cfg.profile,
-        )
+        for layer in cfg.layers:
+            producers[layer] = KinesisProducer(
+                stream_name=_stream_name_for(layer),
+                region="us-east-1",
+                profile=cfg.profile,
+                partition_key_field=PARTITION_KEY_FIELDS[layer],
+            )
+            stream_stats[layer] = SendStats()
 
     well_recs: list[dict] = []
     plant_recs: list[dict] = []
@@ -119,16 +136,21 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
             w_recs = pad.step(ts, bus)
             if do_wells:
                 well_recs.extend(w_recs)
-                if producer is not None:
-                    stream_stats.merge(producer.send(w_recs))
+                if "wells" in producers:
+                    stream_stats["wells"].merge(producers["wells"].send(w_recs))
 
             if do_plant or do_utils:
                 inlet = pad.aggregate()
                 p_rec = plant.step(inlet, ts, bus)
                 if do_plant:
                     plant_recs.append(p_rec)
+                    if "plant" in producers:
+                        stream_stats["plant"].merge(producers["plant"].send([p_rec]))
                 if do_utils:
-                    util_recs.append(utils.step(p_rec, ts, bus))
+                    u_rec = utils.step(p_rec, ts, bus)
+                    util_recs.append(u_rec)
+                    if "utilities" in producers:
+                        stream_stats["utilities"].merge(producers["utilities"].send([u_rec]))
 
             progress.update(task, advance=1)
     elapsed = time.perf_counter() - t0
@@ -141,9 +163,12 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     }
 
     # ── Write Parquet ───────────────────────────────────────────────
+    # --no-local skips local Parquet for any streamed layer (Firehose lands
+    # it in S3 anyway). Non-streamed layers always write locally.
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    streamed_layers = set(producers.keys())
     for layer, df in layer_dfs.items():
-        if cfg.no_local and layer == "wells":
+        if cfg.no_local and layer in streamed_layers:
             continue
         n = write_layer_parquet(df, layer, cfg.output_dir)
         if n > 0:
@@ -154,27 +179,32 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
         for layer, df in layer_dfs.items():
             if df.empty:
                 continue
-            if cfg.no_local and layer == "wells":
+            if cfg.no_local and layer in streamed_layers:
                 continue
             n = upload_layer_s3(cfg.output_dir, layer, cfg.upload)
             console.print(f"[green]✓[/green] uploaded {n} files for layer '{layer}' → s3 ({cfg.upload})")
 
     # ── Stream summary ──────────────────────────────────────────────
-    if cfg.stream:
-        stream_table = Table(title="Kinesis stream — wells", show_lines=False)
-        stream_table.add_column("Stream",                style="cyan")
-        stream_table.add_column("Sent",                  justify="right", style="green")
-        stream_table.add_column("Batches",               justify="right")
-        stream_table.add_column("Retries",               justify="right")
-        stream_table.add_column("Failed after retries",  justify="right",
-                                style="red" if stream_stats.failed_after_retries else "dim")
-        stream_table.add_row(
-            cfg.stream_name,
-            f"{stream_stats.total_sent:,}",
-            f"{stream_stats.batches:,}",
-            f"{stream_stats.retries:,}",
-            f"{stream_stats.failed_after_retries:,}",
-        )
+    if cfg.stream and stream_stats:
+        any_failed = any(s.failed_after_retries for s in stream_stats.values())
+        stream_table = Table(title="Kinesis streams", show_lines=False)
+        stream_table.add_column("Stream",               style="cyan")
+        stream_table.add_column("Sent",                 justify="right", style="green")
+        stream_table.add_column("Batches",              justify="right")
+        stream_table.add_column("Retries",              justify="right")
+        stream_table.add_column("Failed after retries", justify="right",
+                                style="red" if any_failed else "dim")
+        for layer in cfg.layers:
+            if layer not in stream_stats:
+                continue
+            s = stream_stats[layer]
+            stream_table.add_row(
+                _stream_name_for(layer),
+                f"{s.total_sent:,}",
+                f"{s.batches:,}",
+                f"{s.retries:,}",
+                f"{s.failed_after_retries:,}",
+            )
         console.print()
         console.print(stream_table)
 

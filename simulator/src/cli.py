@@ -32,7 +32,6 @@ class RunConfig:
     inject_gas_lock_at: Optional[datetime]
     gas_lock_duration_h: float
     stream: bool = False
-    stream_name: str = "vaca-muerta-wells-stream"
     no_local: bool = False
     profile: str = "oil-gas-dev"
 
@@ -68,9 +67,15 @@ def main(
              'e.g. "LLL-002:2026-04-10T08:00:00".',
     ),
     gas_lock_duration_h: float = typer.Option(3.0, help="Duration of injected gas-lock."),
-    stream: bool = typer.Option(False, "--stream/--no-stream", help="Emit wells-layer records to Kinesis."),
-    stream_name: str = typer.Option("vaca-muerta-wells-stream", help="Kinesis stream name."),
-    no_local: bool = typer.Option(False, "--no-local", help="Skip local Parquet for wells when streaming. Requires --stream."),
+    stream: bool = typer.Option(
+        False, "--stream/--no-stream",
+        help="Emit records to Kinesis for every layer in --layers. "
+             "Stream names are derived per layer as vaca-muerta-<layer>-stream.",
+    ),
+    no_local: bool = typer.Option(
+        False, "--no-local",
+        help="Skip local Parquet for any streamed layer (Firehose lands it in S3). Requires --stream.",
+    ),
     profile: str = typer.Option("oil-gas-dev", help="AWS profile for boto3 session (Kinesis only)."),
 ) -> None:
     """Run the simulator and write three Parquet datasets partitioned by date."""
@@ -108,8 +113,6 @@ def main(
     # ── Validate stream flags ───────────────────────────────────────
     if no_local and not stream:
         raise typer.BadParameter("--no-local requires --stream")
-    if stream and "wells" not in layers_t:
-        raise typer.BadParameter("--stream requires 'wells' in --layers (only wells are streamed)")
 
     cfg = RunConfig(
         start=start_dt,
@@ -126,7 +129,6 @@ def main(
         inject_gas_lock_at=gas_lock_at,
         gas_lock_duration_h=gas_lock_duration_h,
         stream=stream,
-        stream_name=stream_name,
         no_local=no_local,
         profile=profile,
     )

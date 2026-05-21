@@ -1,7 +1,10 @@
-"""Kinesis producer for wells-layer records.
+"""Kinesis producer for streamed simulator records (wells / plant / utilities).
 
 Wraps boto3's kinesis client with batching, byte-limit awareness, and a
 retry loop that re-sends only the records that PutRecords rejected.
+
+The producer is layer-agnostic: each instance is bound to one stream name
+and one partition_key_field (wells → well_id, plant/utilities → pad_id).
 
 Designed for accelerated replay: emits as fast as Kinesis accepts, with
 exponential backoff only on throttling — no real-time pacing.
@@ -63,18 +66,26 @@ def _json_default(obj: Any) -> Any:
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def serialize_record(record: dict) -> tuple[bytes, str]:
-    """Convert a wells dict into (json_bytes, partition_key).
-    Raises ValueError if well_id is missing or the encoded payload exceeds 1 MiB.
+def serialize_record(record: dict, partition_key_field: str = "well_id") -> tuple[bytes, str]:
+    """Convert a record dict into (json_bytes, partition_key).
+
+    partition_key_field selects which field on the record becomes the
+    Kinesis PartitionKey. Wells use "well_id"; plant and utilities use
+    "pad_id" (single-pad lab, all records land on shard 0 — fine for 1 shard).
+    Raises ValueError if the field is missing/empty or payload exceeds 1 MiB.
     """
-    if "well_id" not in record or not record["well_id"]:
-        raise ValueError("record must contain a non-empty 'well_id' for partition key")
+    key_value = record.get(partition_key_field)
+    if not key_value:
+        raise ValueError(
+            f"record must contain a non-empty '{partition_key_field}' for partition key"
+        )
     payload = json.dumps(record, default=_json_default, separators=(",", ":")).encode("utf-8")
     if len(payload) > MAX_RECORD_BYTES:
         raise ValueError(
-            f"record exceeds Kinesis 1 MiB limit ({len(payload)} bytes); well_id={record['well_id']}"
+            f"record exceeds Kinesis 1 MiB limit ({len(payload)} bytes); "
+            f"{partition_key_field}={key_value}"
         )
-    return payload, str(record["well_id"])
+    return payload, str(key_value)
 
 
 @dataclass
@@ -92,7 +103,7 @@ class _PreparedRecord:
 
 
 class KinesisProducer:
-    """Batches wells dicts into Kinesis PutRecords calls with retry-on-throttle."""
+    """Batches layer-record dicts into Kinesis PutRecords calls with retry-on-throttle."""
 
     def __init__(
         self,
@@ -100,6 +111,7 @@ class KinesisProducer:
         region: str = "us-east-1",
         profile: Optional[str] = None,
         *,
+        partition_key_field: str = "well_id",
         client: Any = None,
         sleep_fn: Callable[[float], None] = time.sleep,
         max_retries: int = 5,
@@ -107,6 +119,7 @@ class KinesisProducer:
         backoff_cap_s: float = 2.0,
     ) -> None:
         self.stream_name = stream_name
+        self.partition_key_field = partition_key_field
         self.max_retries = max_retries
         self.backoff_base_s = backoff_base_s
         self.backoff_cap_s = backoff_cap_s
@@ -187,7 +200,10 @@ class KinesisProducer:
 
     # ── Public API ──────────────────────────────────────────────────
     def send(self, records: Iterable[dict]) -> SendStats:
-        prepared = [_PreparedRecord(*serialize_record(r)) for r in records]
+        prepared = [
+            _PreparedRecord(*serialize_record(r, self.partition_key_field))
+            for r in records
+        ]
         stats = SendStats()
         for batch in self._chunks(prepared):
             stats.batches += 1

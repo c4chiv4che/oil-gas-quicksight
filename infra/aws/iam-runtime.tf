@@ -7,7 +7,7 @@
 #   - S3 read/write on the three project buckets (raw, curated, athena-results)
 #   - Glue catalog READ
 #   - Athena query execution (not workgroup management)
-#   - Kinesis producer perms scoped to the wells stream ARN
+#   - Kinesis producer perms scoped to the wells/plant/utilities stream ARNs
 #   - QuickSight read/describe/list (Standard edition; dashboard authoring
 #     happens through the console — no Create*/Update*/Delete* here)
 #   - IAM self-introspection + policy read (so `terraform plan` refresh works)
@@ -105,7 +105,7 @@ resource "aws_iam_policy" "runtime" {
         Resource = "*"
       },
       {
-        Sid    = "KinesisProducerWells"
+        Sid    = "KinesisProducerStreams"
         Effect = "Allow"
         Action = [
           "kinesis:PutRecord",
@@ -115,7 +115,7 @@ resource "aws_iam_policy" "runtime" {
           "kinesis:ListShards",
           "kinesis:ListTagsForStream"
         ]
-        Resource = aws_kinesis_stream.wells.arn
+        Resource = [for s in aws_kinesis_stream.layer : s.arn]
       },
       {
         Sid    = "FirehoseReadForPlan"
