@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -20,11 +21,14 @@ from rich.progress import (
     BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn,
 )
 
+from rich.table import Table
+
 from .cli import RunConfig, app
 from .config import PAD_ID, WELL_IDS, WELL_OFFSETS_DAYS
 from .events import EventBus, WellEvent
 from .output import render_summary, upload_layer_s3, write_layer_parquet
 from .plant import Plant
+from .stream import KinesisProducer, SendStats
 from .utilities import Utilities
 from .wells import Well, WellPad
 
@@ -74,7 +78,19 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
         console.print(f"  [yellow]ESD injected[/yellow]: {cfg.inject_esd_at.isoformat()}  reason={cfg.esd_reason.value}  duration={cfg.esd_duration_h}h")
     if cfg.inject_gas_lock_well:
         console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
+    if cfg.stream:
+        console.print(f"  [cyan]Streaming[/cyan]: → {cfg.stream_name}  (profile={cfg.profile}, local-wells={'off' if cfg.no_local else 'on'})")
     console.print()
+
+    # ── Kinesis producer (only if --stream) ─────────────────────────
+    producer: Optional[KinesisProducer] = None
+    stream_stats = SendStats()
+    if cfg.stream:
+        producer = KinesisProducer(
+            stream_name=cfg.stream_name,
+            region="us-east-1",
+            profile=cfg.profile,
+        )
 
     well_recs: list[dict] = []
     plant_recs: list[dict] = []
@@ -103,6 +119,8 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
             w_recs = pad.step(ts, bus)
             if do_wells:
                 well_recs.extend(w_recs)
+                if producer is not None:
+                    stream_stats.merge(producer.send(w_recs))
 
             if do_plant or do_utils:
                 inlet = pad.aggregate()
@@ -125,6 +143,8 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     # ── Write Parquet ───────────────────────────────────────────────
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     for layer, df in layer_dfs.items():
+        if cfg.no_local and layer == "wells":
+            continue
         n = write_layer_parquet(df, layer, cfg.output_dir)
         if n > 0:
             console.print(f"[green]✓[/green] {layer}: wrote {n} Parquet date-partitions")
@@ -134,8 +154,29 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
         for layer, df in layer_dfs.items():
             if df.empty:
                 continue
+            if cfg.no_local and layer == "wells":
+                continue
             n = upload_layer_s3(cfg.output_dir, layer, cfg.upload)
             console.print(f"[green]✓[/green] uploaded {n} files for layer '{layer}' → s3 ({cfg.upload})")
+
+    # ── Stream summary ──────────────────────────────────────────────
+    if cfg.stream:
+        stream_table = Table(title="Kinesis stream — wells", show_lines=False)
+        stream_table.add_column("Stream",                style="cyan")
+        stream_table.add_column("Sent",                  justify="right", style="green")
+        stream_table.add_column("Batches",               justify="right")
+        stream_table.add_column("Retries",               justify="right")
+        stream_table.add_column("Failed after retries",  justify="right",
+                                style="red" if stream_stats.failed_after_retries else "dim")
+        stream_table.add_row(
+            cfg.stream_name,
+            f"{stream_stats.total_sent:,}",
+            f"{stream_stats.batches:,}",
+            f"{stream_stats.retries:,}",
+            f"{stream_stats.failed_after_retries:,}",
+        )
+        console.print()
+        console.print(stream_table)
 
     # ── Summary ─────────────────────────────────────────────────────
     render_summary(layer_dfs, elapsed, cfg.output_dir)
