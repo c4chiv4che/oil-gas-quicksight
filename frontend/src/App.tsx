@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useSimulationClock } from "./sim/useSimulationClock";
 import { useSimStore } from "./sim/simStore";
 import { useAssetStore } from "./state/assetStore";
-import { loadWells } from "./data/dataSource";
+import { loadWells, loadEsdEvents } from "./data/dataSource";
 import { ClockProbe } from "./components/ClockProbe";
 import { ValueSymbol } from "./symbols/ValueSymbol";
 import { GaugeSymbol } from "./symbols/GaugeSymbol";
 import { TrendSymbol } from "./symbols/TrendSymbol";
+import { EventsTable } from "./symbols/EventsTable";
 import type { TrendConfig } from "./symbols/trendConfig";
 import type { HmiThemeName } from "./theme/theme";
 import "./theme/theme.css";
@@ -61,6 +62,8 @@ export default function App() {
       }
       initWindow(min, max);
     });
+    // Fire-and-forget: EventsTable subscribes to the cache itself.
+    loadEsdEvents();
   }, [initWindow, setWellList]);
 
   return (
@@ -133,6 +136,12 @@ export default function App() {
           <TrendSymbol config={trendConfig} />
         </div>
       )}
+
+      {/* Events probe — live ESD phase log. Grows as simTime crosses
+          each phase_start; the active phase is highlighted. */}
+      <div style={{ marginTop: "24px", maxWidth: "720px" }}>
+        <EventsTable />
+      </div>
     </div>
   );
 }

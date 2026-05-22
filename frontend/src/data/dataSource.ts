@@ -114,3 +114,90 @@ export function loadWells(): Promise<WellRow[]> {
 export function useWellsCache(): WellRow[] | null {
   return useSyncExternalStore(subscribeWells, getWellsCache, () => null);
 }
+
+// ---- ESD events cache -----------------------------------------------------
+
+/**
+ * One row in esd_events.json — a single ESD phase. tStart/tEnd are
+ * pre-parsed epoch ms; the original string columns are kept for
+ * traceability against Athena. The flare/hotoil aggregates are kept on
+ * the row for a future per-phase detail panel; EventsTable does not
+ * render them (the log stays at Phase | Start | Duration | Reason).
+ */
+export interface EsdEventRow {
+  /** Epoch ms parsed from `phase_start`. Added at load — not in Athena. */
+  tStart: number;
+  /** Epoch ms parsed from `phase_end`. */
+  tEnd: number;
+  esd_phase: string;
+  esd_reason: string;
+  minutes_in_phase: number;
+  phase_start: string;
+  phase_end: string;
+  peak_flare_hp_mm3d: number;
+  avg_flare_hp_mm3d: number;
+  min_hotoil_supply_c: number;
+  max_hotoil_supply_c: number;
+}
+
+let esdEventsCache: EsdEventRow[] | null = null;
+let esdEventsPromise: Promise<EsdEventRow[]> | null = null;
+const esdEventsListeners = new Set<() => void>();
+
+function notifyEsdEvents(): void {
+  for (const fn of esdEventsListeners) fn();
+}
+
+function subscribeEsdEvents(fn: () => void): () => void {
+  esdEventsListeners.add(fn);
+  return () => {
+    esdEventsListeners.delete(fn);
+  };
+}
+
+function getEsdEventsCache(): EsdEventRow[] | null {
+  return esdEventsCache;
+}
+
+/**
+ * Loads esd_events.json once and caches it. Mirrors loadWells:
+ * idempotent, promise-level dedupe, single legitimate call site in
+ * App.tsx's DataBoot. The file is tiny (6 rows) so we trade nothing by
+ * eager-loading it next to wells.
+ */
+export function loadEsdEvents(): Promise<EsdEventRow[]> {
+  if (esdEventsCache) return Promise.resolve(esdEventsCache);
+  if (esdEventsPromise) return esdEventsPromise;
+  esdEventsPromise = fetch(`${DATA_BASE}/esd_events.json`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`esd_events.json: HTTP ${r.status}`);
+      return r.json() as Promise<Omit<EsdEventRow, "tStart" | "tEnd">[]>;
+    })
+    .then((rows) => {
+      const out: EsdEventRow[] = rows.map((r) => ({
+        ...r,
+        tStart: parseAthenaTs(r.phase_start),
+        tEnd: parseAthenaTs(r.phase_end),
+      }));
+      // Defensive sort by phase start. The exporter already orders
+      // chronologically but we cannot trust that across formats.
+      out.sort((a, b) => a.tStart - b.tStart);
+      esdEventsCache = out;
+      notifyEsdEvents();
+      return out;
+    });
+  return esdEventsPromise;
+}
+
+/**
+ * Subscribes to the ESD events cache. Same null→array, never-mutates
+ * contract as useWellsCache: components see null until DataBoot resolves
+ * the fetch, then receive the populated array exactly once.
+ */
+export function useEsdEventsCache(): EsdEventRow[] | null {
+  return useSyncExternalStore(
+    subscribeEsdEvents,
+    getEsdEventsCache,
+    () => null,
+  );
+}
