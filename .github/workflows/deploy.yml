@@ -1,0 +1,71 @@
+# Builds frontend/ with Vite and publishes dist/ to GitHub Pages on
+# every push to main.
+#
+# Assumptions:
+#   - vite.config.ts sets `base = '/oil-gas-quicksight/'` for builds, so
+#     the bundle's asset URLs match the Pages subpath.
+#   - The data symlink frontend/public/data/demo -> ../../../data/demo
+#     is preserved by actions/checkout (it is, on ubuntu-latest) and
+#     followed by Vite's public/ copy. If it ever stops being followed,
+#     add a "Materialize data symlink" step between checkout and build
+#     that replaces the symlink with a real copy in CI only.
+#   - Pages is enabled in repo Settings -> Pages with Source = "GitHub
+#     Actions" (one-time manual step; cannot be automated from here).
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Latest push wins — older in-flight deploys get cancelled so we never
+# ship a stale commit on top of a newer one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

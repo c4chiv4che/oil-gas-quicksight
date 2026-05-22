@@ -261,12 +261,15 @@ export function GaugeSymbol({ tag, well, variant = "radial" }: Props) {
           />
         )}
         <circle cx={CX} cy={CY} r={HUB_R} fill="var(--hmi-text)" />
-        {/* Centered readout: glyph + value + unit on one baseline. */}
+        {/* Centered readout: glyph + value + unit on one baseline.
+            `font-variant-numeric` has no SVG presentation attribute
+            counterpart; passing it via `style` keeps the CSS property
+            valid (CSS applies to SVG text) and type-checks cleanly. */}
         <text
           x={CX}
           y={72}
           textAnchor="middle"
-          fontVariantNumeric="tabular-nums"
+          style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {glyph && (
             <tspan fontSize={8} fill={valueColor}>

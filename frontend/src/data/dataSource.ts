@@ -14,8 +14,16 @@
 
 import { useSyncExternalStore } from "react";
 
-/** Base URL for static datasets. Swappable via env (S3, CDN, mock). */
-export const DATA_BASE = import.meta.env.VITE_DATA_BASE ?? "/data/demo";
+/**
+ * Base URL for static datasets. Derived from Vite's BASE_URL so it
+ * automatically follows the deployment subpath: '/data/demo' in dev,
+ * '/oil-gas-quicksight/data/demo' on GitHub Pages. An explicit
+ * VITE_DATA_BASE override stays available for a future S3/CDN swap
+ * without touching the build's `base`.
+ */
+export const DATA_BASE =
+  import.meta.env.VITE_DATA_BASE ??
+  `${import.meta.env.BASE_URL}data/demo`.replace(/\/\/+/g, "/");
 
 /**
  * Row schema mirrors the Athena columns (snake_case). Field `t` is
