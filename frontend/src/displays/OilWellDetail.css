@@ -46,11 +46,31 @@
   gap: 10px;
 }
 
-.display-header__well {
+/* Native <select> styled to match the rest of the HMI. We deliberately
+   keep the browser's dropdown chrome (the arrow / option list) — only
+   the closed-state box is restyled. <option> elements have very limited
+   styling support across browsers; trying to harmonize them with --hmi-*
+   would silently fail on Firefox/Safari, so we leave them native. */
+.display-header__well-select {
+  font-family: inherit;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--hmi-text);
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.display-header__well-select:hover {
+  border-color: var(--hmi-accent);
+}
+
+.display-header__well-select:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 1px;
 }
 
 .display-header__name {

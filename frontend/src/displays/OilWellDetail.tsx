@@ -92,10 +92,36 @@ export function OilWellDetail() {
  * from the rest of the display. No reimplementation of evaluateState.
  */
 function DisplayHeader({ well }: { well: string }) {
+  // Read the discovered well list + setter directly from the asset store.
+  // Keeping this inside the header (rather than threading it through props)
+  // means OilWellDetail still only knows about `activeWell` — the picker
+  // owns its own data and lives next to the value it controls.
+  const wells = useAssetStore((s) => s.wells);
+  const setActiveWell = useAssetStore((s) => s.setActiveWell);
+
+  // While DataBoot is still resolving the wells list, fall back to the
+  // current `well` as the only option. Without this, React warns about a
+  // controlled <select> whose `value` matches no <option>.
+  const options = wells.length > 0 ? wells : [well];
+
   return (
     <div className="display-header">
       <div className="display-header__title">
-        <span className="display-header__well">{well}</span>
+        {/* Native <select>: keyboard, screen-reader and mobile UX come
+            free. We style the box (background, border, text) with HMI
+            tokens; <option> rendering stays browser-native by design. */}
+        <select
+          className="display-header__well-select"
+          value={well}
+          onChange={(e) => setActiveWell(e.target.value)}
+          aria-label="Select well"
+        >
+          {options.map((w) => (
+            <option key={w} value={w}>
+              {w}
+            </option>
+          ))}
+        </select>
         <span className="display-header__name">· Oil Well Detail</span>
       </div>
       <WellStateBadge well={well} />
