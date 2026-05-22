@@ -4,7 +4,8 @@
    Fixed 1366px width, centered. CSS Grid hierarchy:
 
      [ display header ]                            full width
-     [ value | value | value | value ]             4 equal columns
+     [ ESD banner (only while inEsdRange) ]        full width, optional
+     [ value × 6 ]                                 6 equal columns
      [ gauges (260px) | trend (1fr) ]              two columns
      [ events table ]                              full width
 
@@ -86,11 +87,59 @@
   letter-spacing: 0.5px;
 }
 
+/* ---- ESD banner ----
+
+   SCADA-style alarm banner declaring an active ESD. Rendered only
+   while useActiveEsdPhase().inEsdRange is true; otherwise EsdBanner
+   returns null and this rule has no DOM to style. No animation —
+   ISA-101 reserves blinking for unacknowledged alarms, this banner
+   declares a state and does not request ack. */
+
+.esd-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--state-alarm-bg);
+  border: 1px solid var(--state-alarm-border);
+  border-left: 4px solid var(--state-alarm);
+  border-radius: 4px;
+  color: var(--hmi-text);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+}
+
+.esd-banner__glyph {
+  color: var(--state-alarm);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.esd-banner__title {
+  color: var(--state-alarm);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.esd-banner__sep {
+  color: var(--hmi-text-muted);
+}
+
+.esd-banner__k {
+  color: var(--hmi-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
 /* ---- Value row ---- */
 
 .display-values {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
 }
 

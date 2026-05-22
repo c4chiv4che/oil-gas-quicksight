@@ -25,6 +25,7 @@ import { GaugeSymbol } from "../symbols/GaugeSymbol";
 import { TrendSymbol } from "../symbols/TrendSymbol";
 import { EventsTable } from "../symbols/EventsTable";
 import type { TrendConfig } from "../symbols/trendConfig";
+import { EsdBanner } from "./EsdBanner";
 import "./OilWellDetail.css";
 
 export function OilWellDetail() {
@@ -53,10 +54,17 @@ export function OilWellDetail() {
     <div className="display-shell">
       <DisplayHeader well={activeWell} />
 
+      {/* EsdBanner renders null when no ESD is running, so it does not
+          become a grid item and the row-gap between header and values
+          stays identical to the baseline layout. */}
+      <EsdBanner />
+
       <div className="display-values">
         <ValueSymbol tag="whp" />
         <ValueSymbol tag="chp" />
         <ValueSymbol tag="tt_flow" />
+        <ValueSymbol tag="ft_oil" />
+        <ValueSymbol tag="ft_gas" />
         <ValueSymbol tag="well_state" />
       </div>
 

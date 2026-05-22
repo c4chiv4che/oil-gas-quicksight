@@ -7,11 +7,14 @@
  * "active" — the operator sees which step of the shutdown sequence is
  * running right now, the same idea as Meridian's stop-sequence panel.
  *
- * Re-render contract: two primitive Zustand selectors (visibleCount,
- * activeIndex) gate React updates. Strict-equality on numbers means
- * the component re-renders only when a phase appears or the active
- * phase changes — at most ~12 times across the entire demo day, not
- * once per simTime tick.
+ * Re-render contract: `visibleCount` and `activePhaseIndex` come from
+ * the shared `useActiveEsdPhase` hook, where they live behind primitive
+ * Zustand selectors. Strict-equality on numbers means this component
+ * re-renders only when a phase appears or the active phase changes —
+ * at most ~12 times across the entire demo day, not once per simTime
+ * tick. The hook is the single source of truth for "ESD state derived
+ * from simTime"; the banner consumes the same hook so the two views
+ * cannot drift.
  *
  * Today this component is bound to the ESD event source. To support
  * additional event streams (alarms, batch events, work orders…) the
@@ -21,24 +24,9 @@
  * Not built yet: one source, no need to pay the abstraction tax.
  */
 
-import { useMemo, type CSSProperties } from "react";
-import { useSimStore } from "../sim/simStore";
+import { type CSSProperties } from "react";
 import { useEsdEventsCache } from "../data/dataSource";
-
-/** Count of phases whose start <= target. Linear over a tiny array. */
-function countLE(starts: number[], target: number): number {
-  let n = 0;
-  for (const v of starts) if (v <= target) n++;
-  return n;
-}
-
-/** Index of the phase whose [start, end] contains target, else -1. */
-function findActive(starts: number[], ends: number[], target: number): number {
-  for (let i = 0; i < starts.length; i++) {
-    if (starts[i] <= target && target <= ends[i]) return i;
-  }
-  return -1;
-}
+import { useActiveEsdPhase } from "../data/useActiveEsdPhase";
 
 /**
  * HH:MM:SS in UTC. The dataset's timestamps are stored as UTC (see
@@ -103,26 +91,11 @@ const tdBase: CSSProperties = {
 
 export function EventsTable() {
   const events = useEsdEventsCache();
-
-  // Stable arrays for the selector closures. References change exactly
-  // once (null→loaded) and stay stable afterwards, so the selectors
-  // close over the same numbers for the lifetime of the page.
-  const tStarts = useMemo(
-    () => events?.map((e) => e.tStart) ?? [],
-    [events],
-  );
-  const tEnds = useMemo(
-    () => events?.map((e) => e.tEnd) ?? [],
-    [events],
-  );
-
-  // Primitive selectors: Zustand short-circuits subscriber updates on
-  // strict equality, so re-renders fire only when one of these numbers
-  // changes — never per simTime tick.
-  const visibleCount = useSimStore((s) => countLE(tStarts, s.simTime));
-  const activeIndex = useSimStore((s) =>
-    findActive(tStarts, tEnds, s.simTime),
-  );
+  // `events` is still read locally because the render needs the full
+  // EsdEventRow per row (phase label, start, duration, reason). The
+  // hook reads the same cache; both calls return the same cached
+  // reference so there is no fetch duplication or drift.
+  const { visibleCount, activePhaseIndex } = useActiveEsdPhase();
 
   const showPlaceholder = visibleCount === 0;
   // Distinguish "before any phase" from "still fetching" so the operator
@@ -173,7 +146,7 @@ export function EventsTable() {
             // populated tStarts, which only happens after the cache
             // resolved.
             events!.slice(0, visibleCount).map((e, i) => {
-              const isActive = i === activeIndex;
+              const isActive = i === activePhaseIndex;
               const rowBg = isActive
                 ? "var(--state-alarm-bg)"
                 : "transparent";
