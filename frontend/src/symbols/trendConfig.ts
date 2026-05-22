@@ -44,6 +44,16 @@ export interface TrendConfig {
   to: number;
   /** One or more series. Group by `axis` for shared y scales. */
   series: TrendSeriesConfig[];
-  /** Default true. Limit overlay applies to the first left-axis series. */
+  /** Default true. Limit overlay applies to the first left-axis series.
+   *  Ignored when bands are active (bands replace the dashed lines — same
+   *  info, less ink). */
   showLimits?: boolean;
+  /** When true, paints colored horizontal background bands derived from
+   *  the single series' tag limits. Bands are a MONO-SERIES feature:
+   *  multi-axis bands are ambiguous by construction (which series' limits
+   *  decide the zones?), so this flag is silently ignored when
+   *  series.length > 1. Default: inferred true when series.length === 1,
+   *  false otherwise. When bands render, the dashed-limit overlay is
+   *  suppressed to avoid duplicating the zone information. */
+  showBands?: boolean;
 }

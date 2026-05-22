@@ -34,7 +34,7 @@ export function OilWellDetail() {
   const windowStart = useSimStore((s) => s.windowStart);
   const windowEnd = useSimStore((s) => s.windowEnd);
 
-  // Display owns its own trend spec. Memoized so TrendSymbol's mount
+  // Display owns its own trend specs. Memoized so TrendSymbol's mount
   // effect deps stay stable across unrelated re-renders.
   const trendConfig = useMemo<TrendConfig | null>(() => {
     if (!windowStart || !windowEnd) return null;
@@ -48,6 +48,22 @@ export function OilWellDetail() {
         { tag: "ft_gas", axis: "right" },
       ],
       showLimits: true,
+    };
+  }, [windowStart, windowEnd]);
+
+  // Mono-series WHP trend — bands auto-activate (series.length === 1) and
+  // replace the dashed-limit overlay. This is the case bands were made
+  // for: watch the wellhead pressure trace cross into a colored zone as
+  // it approaches alarm. During an ESD, whp collapses below lolo and
+  // the trace lands inside the lower red band — unmistakable at a glance.
+  const whpTrendConfig = useMemo<TrendConfig | null>(() => {
+    if (!windowStart || !windowEnd) return null;
+    return {
+      id: "oil-well-detail-whp",
+      title: "Wellhead pressure",
+      from: windowStart,
+      to: windowEnd,
+      series: [{ tag: "whp", axis: "left" }],
     };
   }, [windowStart, windowEnd]);
 
@@ -76,6 +92,10 @@ export function OilWellDetail() {
 
       <div className="display-trend">
         {trendConfig && <TrendSymbol config={trendConfig} />}
+      </div>
+
+      <div className="display-trend">
+        {whpTrendConfig && <TrendSymbol config={whpTrendConfig} />}
       </div>
 
       <div className="display-events">

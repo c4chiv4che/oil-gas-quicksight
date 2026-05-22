@@ -23,9 +23,9 @@ import { TAGS, getLimits } from "../data/tagConfig";
 import { useAssetStore } from "../state/assetStore";
 import {
   STATE_GLYPH,
+  buildZones,
   evaluateState,
   type ProcessState,
-  type StateLimits,
 } from "../theme/theme";
 import type { WellRow } from "../data/dataSource";
 
@@ -95,51 +95,6 @@ function arcPath(
   const p2 = pointOnCircle(cx, cy, r, a2);
   const largeArc = Math.abs(a2 - a1) > 180 ? 1 : 0;
   return `M ${p1.x.toFixed(3)} ${p1.y.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${p2.x.toFixed(3)} ${p2.y.toFixed(3)}`;
-}
-
-interface Zone {
-  state: ProcessState;
-  from: number;
-  to: number;
-}
-
-/**
- * Builds the colored zones of the arc from the tag's limits. Each
- * boundary (0, lolo, lo, hi, hihi, scaleMax) that falls inside the
- * scale becomes a segment edge; the segment's state is decided by
- * calling evaluateState() at its midpoint. That keeps zones and needle
- * in lockstep and handles missing limits without dedicated branches.
- */
-function buildZones(limits: StateLimits, scaleMax: number): Zone[] {
-  const candidates: number[] = [
-    0,
-    limits.loloLimit,
-    limits.loLimit,
-    limits.hiLimit,
-    limits.hihiLimit,
-    scaleMax,
-  ].filter((v): v is number => typeof v === "number");
-
-  const sorted = candidates
-    .filter((v) => v >= 0 && v <= scaleMax)
-    .sort((a, b) => a - b);
-
-  const unique: number[] = [];
-  for (const v of sorted) {
-    if (unique.length === 0 || v - unique[unique.length - 1] > 1e-9) {
-      unique.push(v);
-    }
-  }
-  if (unique.length < 2) return [];
-
-  const zones: Zone[] = [];
-  for (let i = 0; i < unique.length - 1; i++) {
-    const a = unique[i];
-    const b = unique[i + 1];
-    const mid = (a + b) / 2;
-    zones.push({ state: evaluateState(mid, limits), from: a, to: b });
-  }
-  return zones;
 }
 
 export function GaugeSymbol({ tag, well, variant = "radial" }: Props) {

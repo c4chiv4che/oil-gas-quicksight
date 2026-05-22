@@ -41,7 +41,7 @@ import { useWellsCache } from "../data/dataSource";
 import { useAssetStore } from "../state/assetStore";
 import { useSimStore } from "../sim/simStore";
 import { TAGS, getLimits } from "../data/tagConfig";
-import { readCssVar } from "../theme/theme";
+import { buildZones, readCssVar, type Zone } from "../theme/theme";
 import type { TrendConfig, TrendSeriesConfig, TrendAxisSide } from "./trendConfig";
 import "./TrendSymbol.css";
 
@@ -218,8 +218,15 @@ export function TrendSymbol({ config }: Props) {
     const traceB = readCssVar("--hmi-trace-b") || "#e8a317";
     const textMuted = readCssVar("--hmi-text-muted") || "#8b919a";
     const border = readCssVar("--hmi-border") || "#2e333b";
+    const normal = readCssVar("--state-normal") || "#d4d8dd";
     const warn = readCssVar("--state-warn") || "#e8a317";
     const alarm = readCssVar("--state-alarm") || "#ff5b5b";
+    const stateFill: Record<string, string> = {
+      normal,
+      warn,
+      alarm,
+      stale: textMuted,
+    };
 
     // Initialise masked arrays. Pre-fill up to current sim index so the
     // chart appears already grown at mount instead of flashing empty.
@@ -255,8 +262,30 @@ export function TrendSymbol({ config }: Props) {
     const rangeLeft = axisRange("left", config.series, view.series, view.well);
     const rangeRight = axisRange("right", config.series, view.series, view.well);
 
-    // Limits overlay for the first left-axis series.
-    const showLimits = config.showLimits !== false;
+    // Bands: a mono-series feature (PI Vision's "Add Multi-State or Bands"
+    // pattern). Multi-axis trends are ambiguous — which series' limits
+    // decide the zones? — so bands are silently disabled when
+    // series.length > 1, regardless of the flag value. The default for
+    // a mono-series trend is bands ON; consumers can opt out with
+    // showBands: false.
+    const bandsActive =
+      config.series.length === 1 && (config.showBands ?? true);
+    const firstSeries = config.series[0];
+    const bandLim =
+      bandsActive && firstSeries
+        ? getLimits(firstSeries.tag as string, view.well)
+        : null;
+    // scaleMax for zone construction = the resolved Y axis max. The pixel
+    // positions of band edges come from u.valToPos at draw time (live
+    // scale), so bands cannot drift from grid/ticks even if rangeLeft is
+    // ever recomputed elsewhere.
+    const bandScaleMax = bandLim && rangeLeft ? rangeLeft.max : 0;
+    const zones: Zone[] = bandLim ? buildZones(bandLim, bandScaleMax) : [];
+
+    // Dashed-limit overlay for the first left-axis series. Suppressed
+    // when bands are active — bands already encode the zones, dashed
+    // lines on top would just be ink for the same information.
+    const showLimits = config.showLimits !== false && !bandsActive;
     const lim =
       showLimits && firstLeft
         ? getLimits(firstLeft.tag as string, view.well)
@@ -319,37 +348,78 @@ export function TrendSymbol({ config }: Props) {
         : {};
     }
 
-    // Limits hook: draws horizontal dashed lines on the left ('y') scale.
-    // Belongs in `draw` so it paints on top of the grid but is visually
-    // distinct enough (dashed) not to obscure data.
-    const hooks: uPlot.Hooks.Arrays = lim
-      ? {
-          draw: [
-            (u) => {
-              const { ctx } = u;
-              const { left, top, width: w, height: h } = u.bbox;
-              ctx.save();
-              ctx.setLineDash([4, 4]);
-              ctx.lineWidth = 1;
-              const drawHLine = (val: number | undefined, color: string) => {
-                if (val == null) return;
-                const yPos = u.valToPos(val, "y", true);
-                if (yPos < top || yPos > top + h) return;
-                ctx.strokeStyle = color;
-                ctx.beginPath();
-                ctx.moveTo(left, yPos);
-                ctx.lineTo(left + w, yPos);
-                ctx.stroke();
-              };
-              drawHLine(lim.hihiLimit, alarm);
-              drawHLine(lim.hiLimit, warn);
-              drawHLine(lim.loLimit, warn);
-              drawHLine(lim.loloLimit, alarm);
-              ctx.restore();
-            },
-          ],
-        }
-      : {};
+    // Hooks: bands (drawClear, background) and/or dashed limits (draw, on
+    // top of grid). They are mutually exclusive in practice — bands are
+    // mono-series and suppress `lim` above — but the two slots are
+    // independent here so adding a future overlay does not require
+    // restructuring this block.
+    //
+    // CTX-CACHE NOTE: both hooks mutate canvas state (fillStyle/strokeStyle/
+    // lineDash). uPlot caches those values separately (ctxFill/ctxStroke/
+    // ctxDash) and skips reassignments when its cache matches, so our
+    // writes desync the cache for the rest of the draw cycle. The reveal
+    // path is already protected: it calls setSize() (which blanks the
+    // canvas and resets ctx) instead of redraw(), see the note at the
+    // reveal effect below. As long as no caller ever invokes u.redraw()
+    // directly, the desync is harmless. Do NOT introduce a redraw() path.
+    const hooks: uPlot.Hooks.Arrays = {};
+    if (zones.length > 0) {
+      hooks.drawClear = [
+        (u) => {
+          const { ctx } = u;
+          const { left, top, width: w, height: h } = u.bbox;
+          ctx.save();
+          // Tenue — bands sit behind grid + trace and must not compete
+          // with either. Lower than the 0.35 the gauge arc uses because
+          // bands cover much more area.
+          ctx.globalAlpha = 0.14;
+          for (const z of zones) {
+            // Higher data value → smaller canvas y, so z.to is the top
+            // edge of the band and z.from is the bottom. Pixel positions
+            // come from the live scale via valToPos — no parallel math —
+            // so band edges cannot drift from axis ticks or grid lines.
+            const yTop = u.valToPos(z.to, "y", true);
+            const yBot = u.valToPos(z.from, "y", true);
+            // Clamp to the plot rect so a zone whose endpoint falls
+            // outside the resolved Y range (shouldn't happen given how
+            // bandScaleMax is chosen, but cheap insurance) doesn't bleed
+            // into axes.
+            const clampedTop = Math.max(yTop, top);
+            const clampedBot = Math.min(yBot, top + h);
+            if (clampedBot <= clampedTop) continue;
+            ctx.fillStyle = stateFill[z.state] ?? normal;
+            ctx.fillRect(left, clampedTop, w, clampedBot - clampedTop);
+          }
+          ctx.restore();
+        },
+      ];
+    }
+    if (lim) {
+      hooks.draw = [
+        (u) => {
+          const { ctx } = u;
+          const { left, top, width: w, height: h } = u.bbox;
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1;
+          const drawHLine = (val: number | undefined, color: string) => {
+            if (val == null) return;
+            const yPos = u.valToPos(val, "y", true);
+            if (yPos < top || yPos > top + h) return;
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(left, yPos);
+            ctx.lineTo(left + w, yPos);
+            ctx.stroke();
+          };
+          drawHLine(lim.hihiLimit, alarm);
+          drawHLine(lim.hiLimit, warn);
+          drawHLine(lim.loLimit, warn);
+          drawHLine(lim.loloLimit, alarm);
+          ctx.restore();
+        },
+      ];
+    }
 
     const initialWidth = Math.max(container.clientWidth, 320);
     const opts: uPlot.Options = {
@@ -421,7 +491,7 @@ export function TrendSymbol({ config }: Props) {
       uplotRef.current = null;
       maskedRef.current = [];
     };
-  }, [view, config.id, config.from, config.to, config.series, config.showLimits]);
+  }, [view, config.id, config.from, config.to, config.series, config.showLimits, config.showBands]);
 
   // ── Reveal up to currentIndex (per simulated minute) ───────────────────
   // Mutates the masked arrays in place and pushes via setData(_, false).

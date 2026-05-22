@@ -116,3 +116,59 @@ export function stateColor(state: ProcessState, theme: HmiThemeName): string {
     case "alarm":  return t.stateAlarm;
   }
 }
+
+/** A contiguous zone of constant state on a value scale. Boundaries are
+ *  inclusive on the low side / exclusive on the high side; `state` is
+ *  decided by evaluateState() at the segment midpoint so missing limits
+ *  collapse naturally without per-case branching. */
+export interface Zone {
+  state: ProcessState;
+  from: number;
+  to: number;
+}
+
+/**
+ * Builds the colored zones of a value scale from the tag's limits.
+ *
+ * Each boundary (0, lolo, lo, hi, hihi, scaleMax) that falls inside
+ * [0, scaleMax] becomes a segment edge; the segment's state is decided
+ * by evaluateState() at its midpoint. That keeps any visual (gauge arc,
+ * trend band) in lockstep with the state classification, and tags with
+ * missing limits (e.g. only hi/hihi) collapse to fewer segments without
+ * dedicated branches.
+ *
+ * Shared by GaugeSymbol (radial arc) and TrendSymbol (background bands).
+ * If you change the zone logic, both surfaces update together — that is
+ * the whole point of keeping this here.
+ */
+export function buildZones(limits: StateLimits, scaleMax: number): Zone[] {
+  const candidates: number[] = [
+    0,
+    limits.loloLimit,
+    limits.loLimit,
+    limits.hiLimit,
+    limits.hihiLimit,
+    scaleMax,
+  ].filter((v): v is number => typeof v === "number");
+
+  const sorted = candidates
+    .filter((v) => v >= 0 && v <= scaleMax)
+    .sort((a, b) => a - b);
+
+  const unique: number[] = [];
+  for (const v of sorted) {
+    if (unique.length === 0 || v - unique[unique.length - 1] > 1e-9) {
+      unique.push(v);
+    }
+  }
+  if (unique.length < 2) return [];
+
+  const zones: Zone[] = [];
+  for (let i = 0; i < unique.length - 1; i++) {
+    const a = unique[i];
+    const b = unique[i + 1];
+    const mid = (a + b) / 2;
+    zones.push({ state: evaluateState(mid, limits), from: a, to: b });
+  }
+  return zones;
+}
