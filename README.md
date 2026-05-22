@@ -1,7 +1,9 @@
 # Vaca Muerta SCADA Simulator → AWS Analytics Pipeline
 
+[![Live Demo](https://img.shields.io/badge/live%20demo-online-brightgreen)](https://c4chiv4che.github.io/oil-gas-quicksight/)
 [![Python Tests](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/python-tests.yml/badge.svg)](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/python-tests.yml)
 [![Terraform](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/terraform.yml/badge.svg)](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/terraform.yml)
+[![Deploy](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/deploy.yml/badge.svg)](https://github.com/c4chiv4che/oil-gas-quicksight/actions/workflows/deploy.yml)
 ![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Terraform](https://img.shields.io/badge/terraform-1.5%2B-7B42BC)
@@ -10,7 +12,28 @@
 
 End-to-end data engineering project that simulates a realistic Vaca Muerta shale operation (wellpad + gas processing plant + utilities) and lands the data in AWS for analysis with Athena and QuickSight.
 
+A static **HMI frontend** (React + Vite, PI-Vision-style) replays the dataset as a live demo — see [Live HMI](#-live-hmi--c4chiv4chegithubiooil-gas-quicksight) below.
+
 Built as a learning project to combine 4 years of OT/industrial automation experience with modern cloud data tooling, calibrated against training material authored by senior Argentinian O&G professionals.
+
+---
+
+## 🖥️ Live HMI — [c4chiv4che.github.io/oil-gas-quicksight](https://c4chiv4che.github.io/oil-gas-quicksight/)
+
+A browser-based **SCADA-style HMI** that replays the recorded dataset as a simulated real-time feed — no servers, no streaming infrastructure, just a static site reading versioned JSON. It mirrors the look and interaction model of **AVEVA PI Vision**, the historian/visualization tool used in the ITP Neuquén control-room operator course this project is calibrated against.
+
+What you can do in the live demo:
+
+- **Well Overview** — all four wells at a glance, each color-coded by health (multi-state). Click a well to drill into its detail.
+- **Oil Well Detail** — per-well value boxes, radial gauges, a live production trend, and an ESD event log, all driven by a shared simulated clock.
+- **Time transport** — play / pause / 1×–60× speed / scrub through the full day. Scrub to **2026-03-15 14:00** to watch the plant ESD cascade across every symbol in real time.
+
+The HMI follows **ISA-101** human-machine-interface conventions: a quiet, low-color baseline during normal operation, with color reserved for genuine alarm states (and a switchable high-contrast theme).
+
+<!-- TODO: add screenshots, e.g.:
+![Oil Well Detail](docs/img/oil-well-detail.png)
+![Well Overview](docs/img/overview.png)
+-->
 
 > **New to oil & gas?** Read the plain-language overview: [English](docs/OVERVIEW.md) · [Español](docs/OVERVIEW.es.md)
 
@@ -79,6 +102,17 @@ flowchart TB
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 
+### Frontend HMI (live demo path)
+
+Separately from the AWS analytics path, the simulator's recorded output is committed to the repo as static JSON and served by a React/Vite single-page app on GitHub Pages. This gives a permanently-live "real-time" demo without keeping streaming infrastructure running. The HMI reads the same physical signals (per-well pressures, temperatures, production rates) and the ESD event timeline, and renders them through PI-Vision-style symbols (value boxes, radial gauges, trends, an events table) on a shared simulated clock.
+
+Design decisions worth noting:
+
+- **Fixed Y-axis scales** on trends and gauges (gauges run exactly `0..hihi`; trends bottom at `0` and extend ~10% past `hihi`) — operators rely on stable scales for at-a-glance reading; auto-scaling axes that move under an alarm are an ISA-101 anti-pattern.
+- **Multi-state from real percentile limits** — per-well alarm thresholds (lo/lolo/hi/hihi) tuned from the dataset's own p5–p95 of PRODUCING samples, so color reflects each well's normal operating envelope.
+- **SHUTDOWN is "stale", not "alarm"** — a deliberate operational stop is greyed out, not red; red is reserved for a genuine failure. The Overview cards combine this with production state (oil/gas below lolo) so a tripped plant still reads as alarm — honestly derived, not hard-coded.
+- **The ESD is plant-wide** — the event log and banner are the same regardless of which well you view, because the 2026-03-15 trip is a plant trip that takes all wells down at once.
+
 ---
 
 ## Quickstart
@@ -110,6 +144,16 @@ make sim-full
 ```
 
 Outputs land in `simulator/data/raw/{wells,plant,utilities}/` as Parquet files partitioned by date.
+
+### Run the HMI frontend locally
+
+```bash
+cd frontend
+npm install
+npm run dev        # serves at http://localhost:5173/ (base '/')
+```
+
+The frontend reads the recorded JSON from `data/demo/` (committed to the repo via a symlink in `frontend/public/`), so it runs with no AWS and no backend.
 
 ### Deploy to AWS (full pipeline)
 
@@ -166,6 +210,19 @@ make all
 │       ├── output.py               # Parquet writes + S3 upload + Rich summary
 │       ├── cli.py                  # Typer CLI
 │       └── simulator.py            # Main entry point
+├── frontend/                       # SCADA-style HMI (React + Vite + TS)
+│   ├── package.json
+│   ├── vite.config.ts              # conditional base for GitHub Pages subpath
+│   ├── public/
+│   │   └── data/demo -> ../../../data/demo   # symlink to recorded JSON
+│   └── src/
+│       ├── sim/                    # simulated clock (rAF, drift-free) + store
+│       ├── data/                   # data loaders, useSeries, tag config, useActiveEsdPhase
+│       ├── state/                  # Zustand stores (asset, display)
+│       ├── symbols/                # ValueSymbol, GaugeSymbol, TrendSymbol, EventsTable
+│       ├── displays/               # OilWellDetail, Overview, DisplayRouter, EsdBanner
+│       ├── components/             # TimeTransport (global transport bar)
+│       └── theme/                  # ISA-101 + high-contrast theming
 ├── infra/
 │   ├── localstack/                 # Local AWS for dev/testing (S3 only)
 │   └── aws/                        # Production AWS (S3, Glue, Athena, QuickSight, IAM)
@@ -228,12 +285,13 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 - **Kinesis streaming pipeline** — Kinesis Data Streams + Firehose JSON→Parquet + dedicated streaming crawlers for all 3 layers (operated on-demand)
 - **Two-identity IAM model** — narrow `oil-gas-dev` runtime policy + documented `oil-gas-deploy-policy` for admin operations
 - Comprehensive test suite — 190 automated tests, 93% coverage
+- **Live HMI frontend** — PI-Vision-style SCADA HMI (React + Vite + TypeScript) deployed to GitHub Pages; recorded dataset replayed as a simulated real-time feed. Well Overview + per-well detail, multi-state alarms, live trends, ESD event timeline, ISA-101 theming, asset switching, and display navigation.
+- **Automated Pages deploy** — GitHub Actions builds the frontend and publishes to GitHub Pages on every push to `main` (official Pages actions, OIDC, no `gh-pages` branch).
 
 ### 🚧 Pending
 
 - **QuickSight v2 dashboards** — multi-layer ESD timeline, flare analytics, fiscal gas quality vs NAG-602
 - **Amazon Timestream** integration — AWS Support ticket open to enable LiveAnalytics on the account
-- **Live demo page** — recorded dataset replayed as a simulated real-time feed against a statically-served frontend, so the live-data story is visible without leaving streaming infrastructure running 24/7
 
 ### 🐛 Known issues
 
@@ -244,6 +302,8 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 ## Tech stack
 
 **Simulation**: Python 3.12, [uv](https://docs.astral.sh/uv/), [Typer](https://typer.tiangolo.com/), [Rich](https://rich.readthedocs.io/), Pandas, PyArrow
+
+**Frontend HMI**: React 19, [Vite](https://vite.dev/) 8, TypeScript, [Zustand](https://github.com/pmndrs/zustand) (state), [µPlot](https://github.com/leeoniya/uPlot) (trends), pure SVG symbols, deployed on GitHub Pages
 
 **Infrastructure**: Terraform 1.5+, AWS (S3, Glue, Athena, QuickSight, IAM, CloudWatch), [LocalStack](https://localstack.cloud/) for dev
 
