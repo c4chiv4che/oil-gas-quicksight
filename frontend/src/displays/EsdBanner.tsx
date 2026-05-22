@@ -20,14 +20,7 @@
  */
 
 import { useActiveEsdPhase } from "../data/useActiveEsdPhase";
-
-/** Human duration: "1 min", "15 min", "6h", "5h 40min". */
-function formatMinutes(n: number): string {
-  if (n < 60) return `${n} min`;
-  const h = Math.floor(n / 60);
-  const m = n % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}min`;
-}
+import { formatMinutes } from "../utils/format";
 
 export function EsdBanner() {
   const { inEsdRange, activePhase, elapsedMinutes } = useActiveEsdPhase();

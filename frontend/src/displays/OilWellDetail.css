@@ -247,6 +247,113 @@
   min-width: 0;
 }
 
+/* ---- ESD Sequence panel ----
+
+   Phase-duration summary in PI Vision / Meridian style. All N phases
+   visible at once as a row of KPI cells; the active phase is
+   highlighted with the same alarm tint as the active row in
+   EventsTable, future phases are dimmed at 0.45 opacity.
+
+   Gated on inEsdRange inside the component, so this panel is absent
+   from the DOM in normal operation and the surrounding rows stay put. */
+
+.esd-sequence {
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+.esd-sequence__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--hmi-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.esd-sequence__title {
+  color: var(--hmi-text);
+}
+
+.esd-sequence__sep {
+  color: var(--hmi-text-muted);
+}
+
+.esd-sequence__k {
+  margin-right: 4px;
+}
+
+.esd-sequence__v {
+  color: var(--hmi-text);
+  text-transform: none;
+}
+
+.esd-sequence__row {
+  display: grid;
+  /* grid-template-columns is set inline (depends on events.length). */
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.esd-sequence__cell {
+  background: var(--hmi-surface-2);
+  border: 1px solid var(--hmi-border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* FUTURE phases — present but dim. This is the value-add over
+   EventsTable, which only shows past+current. */
+.esd-sequence__cell--future {
+  opacity: 0.45;
+}
+
+/* ACTIVE phase — same alarm-tint criterion as the active row in
+   EventsTable (alarm background + inset border-left + alarm-color
+   phase name). Keeping the two highlights visually identical means an
+   operator scanning between the two views never has to relearn the
+   "you are here" cue. */
+.esd-sequence__cell--active {
+  background: var(--state-alarm-bg);
+  box-shadow: inset 3px 0 0 var(--state-alarm);
+}
+
+.esd-sequence__cell--active .esd-sequence__phase {
+  color: var(--state-alarm);
+  font-weight: 500;
+}
+
+.esd-sequence__step {
+  font-size: 10px;
+  color: var(--hmi-text-muted);
+  letter-spacing: 0.5px;
+}
+
+.esd-sequence__phase {
+  font-size: 12px;
+  color: var(--hmi-text);
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.esd-sequence__dur {
+  font-size: 14px;
+  color: var(--hmi-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 /* ---- Events zone ---- */
 
 .display-events {

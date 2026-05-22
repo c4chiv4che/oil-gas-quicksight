@@ -27,27 +27,7 @@
 import { type CSSProperties } from "react";
 import { useEsdEventsCache } from "../data/dataSource";
 import { useActiveEsdPhase } from "../data/useActiveEsdPhase";
-
-/**
- * HH:MM:SS in UTC. The dataset's timestamps are stored as UTC (see
- * parseAthenaTs in dataSource), so we render the same wall-clock the
- * exporter wrote. Manual padding avoids toLocaleString locale drift.
- */
-function formatTime(t: number): string {
-  const d = new Date(t);
-  const h = String(d.getUTCHours()).padStart(2, "0");
-  const m = String(d.getUTCMinutes()).padStart(2, "0");
-  const s = String(d.getUTCSeconds()).padStart(2, "0");
-  return `${h}:${m}:${s}`;
-}
-
-/** Human duration: "1 min", "15 min", "6h", "5h 40min". */
-function formatMinutes(n: number): string {
-  if (n < 60) return `${n} min`;
-  const h = Math.floor(n / 60);
-  const m = n % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}min`;
-}
+import { formatMinutes, formatTime } from "../utils/format";
 
 const containerStyle: CSSProperties = {
   background: "var(--hmi-surface)",

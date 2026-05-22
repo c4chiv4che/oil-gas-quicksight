@@ -27,6 +27,7 @@ import { TrendSymbol } from "../symbols/TrendSymbol";
 import { EventsTable } from "../symbols/EventsTable";
 import type { TrendConfig } from "../symbols/trendConfig";
 import { EsdBanner } from "./EsdBanner";
+import { EsdSequence } from "./EsdSequence";
 import "./OilWellDetail.css";
 
 export function OilWellDetail() {
@@ -97,6 +98,11 @@ export function OilWellDetail() {
       <div className="display-trend">
         {whpTrendConfig && <TrendSymbol config={whpTrendConfig} />}
       </div>
+
+      {/* EsdSequence renders null when inEsdRange is false (same gating
+          as EsdBanner), so it does not become a grid item in normal
+          operation and the row-gap to events stays unchanged. */}
+      <EsdSequence />
 
       <div className="display-events">
         <EventsTable />
