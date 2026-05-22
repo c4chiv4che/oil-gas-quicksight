@@ -50,12 +50,12 @@
   }
 }
 
+/* The HMI displays (.display-shell, .overview-shell) own their own
+   fixed width (1366px) and center themselves via margin: 0 auto, so
+   #root must stay full-viewport. The previous width/max-width/border
+   here were Vite template residue and clamped #root to 1126px, which
+   pushed the wider shells against the left edge on wide screens. */
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
