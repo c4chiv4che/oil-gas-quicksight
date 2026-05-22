@@ -1,0 +1,143 @@
+/* ============================================================
+   InjectionPanel — DEMO control styling.
+
+   Deliberately distinct from the operational HMI panels:
+     - DASHED border (live panels are solid).
+     - Recessed bg (--hmi-bg, not --hmi-surface).
+     - Inverted "⚙ DEMO" badge + italic "not a real control" hint.
+
+   Border color is --hmi-text-muted, NOT a state color. Using
+   --state-warn / --state-alarm here would communicate process state
+   ("something is wrong"), which is exactly the wrong signal for a
+   tool-chrome element.
+   ============================================================ */
+
+.injection-panel {
+  background: var(--hmi-bg);
+  border: 2px dashed var(--hmi-text-muted);
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  color: var(--hmi-text);
+}
+
+.injection-panel__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--hmi-border);
+}
+
+.injection-panel__badge {
+  font-size: 10px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  background: var(--hmi-text-muted);
+  color: var(--hmi-bg);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.injection-panel__title {
+  font-size: 12px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--hmi-text);
+}
+
+.injection-panel__hint {
+  font-size: 10px;
+  color: var(--hmi-text-muted);
+  font-style: italic;
+}
+
+.injection-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.injection-panel__label {
+  font-size: 12px;
+  color: var(--hmi-text);
+  min-width: 220px;
+  white-space: nowrap;
+}
+
+.injection-panel__well {
+  color: var(--hmi-text-muted);
+}
+
+.injection-panel__slider {
+  flex: 1 1 auto;
+  /* accent-color is the standards-track way to theme native range
+     thumbs and progress fills without rewriting the control. Works
+     in Chromium and Firefox without any vendor-prefix gymnastics. */
+  accent-color: var(--hmi-accent);
+}
+
+.injection-panel__value {
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--hmi-text);
+}
+
+.injection-panel__btn {
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--hmi-surface);
+  color: var(--hmi-text);
+  border: 1px solid var(--hmi-border);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.injection-panel__btn:hover:not(:disabled) {
+  border-color: var(--hmi-text);
+}
+
+.injection-panel__btn:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 1px;
+}
+
+.injection-panel__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.injection-panel__btn--secondary {
+  margin-left: auto;
+}
+
+.injection-panel__active {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.injection-panel__active-k {
+  color: var(--hmi-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.injection-panel__chip {
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hmi-text);
+}

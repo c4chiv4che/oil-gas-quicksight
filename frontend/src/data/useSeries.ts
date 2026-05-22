@@ -28,6 +28,7 @@
 import { useMemo } from "react";
 import { useSimStore } from "../sim/simStore";
 import { useAssetStore } from "../state/assetStore";
+import { useInjectionStore, injectionKey } from "../state/injectionStore";
 import { useWellsCache, type WellRow } from "./dataSource";
 
 export interface SeriesView<V = number> {
@@ -118,6 +119,18 @@ export function useSeries<K extends keyof WellRow>(
     view ? bsearchLE(view.t, s.simTime) : -1,
   );
 
+  // Demo override hook-in. Primitive selector + strict equality on
+  // number/null means: when no override exists for this (well, tag),
+  // this subscription is FREE — slider movement on some OTHER key
+  // re-runs the selector (one hash lookup) and returns null again, so
+  // Zustand short-circuits and this useSeries does not re-render.
+  // simStore is a separate store; its 60 Hz ticks never touch this
+  // selector. See injectionStore.ts for the idempotency contract.
+  const oKey = injectionKey(wellId, String(tag));
+  const overrideVal = useInjectionStore((s) =>
+    oKey in s.overrides ? s.overrides[oKey] : null,
+  );
+
   if (!view) {
     return {
       series: [],
@@ -129,9 +142,21 @@ export function useSeries<K extends keyof WellRow>(
   }
 
   const series = getColumn(view, tag);
-  const currentValue =
+  const recordedValue =
     currentIndex >= 0 ? (series[currentIndex] as WellRow[K]) : null;
   const currentRow = currentIndex >= 0 ? view.rows[currentIndex] : null;
+
+  // Substitute ONLY currentValue. series/t/currentIndex/currentRow are
+  // untouched so historical traces (TrendSymbol reads its own arrays
+  // from useWellsCache) and event-driven views see the recorded past
+  // exactly as it happened — the override is "what if NOW the value
+  // were X", not a rewrite of history. Numeric guard avoids polluting
+  // string tags (well_state); a misconfigured override there is
+  // silently ignored rather than coerced.
+  const currentValue =
+    overrideVal !== null && typeof recordedValue === "number"
+      ? (overrideVal as WellRow[K])
+      : recordedValue;
 
   return {
     series,

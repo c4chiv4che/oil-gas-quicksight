@@ -28,6 +28,7 @@ import { EventsTable } from "../symbols/EventsTable";
 import type { TrendConfig } from "../symbols/trendConfig";
 import { EsdBanner } from "./EsdBanner";
 import { EsdSequence } from "./EsdSequence";
+import { InjectionPanel } from "./InjectionPanel";
 import "./OilWellDetail.css";
 
 export function OilWellDetail() {
@@ -84,11 +85,13 @@ export function OilWellDetail() {
         <ValueSymbol tag="ft_oil" />
         <ValueSymbol tag="ft_gas" />
         <ValueSymbol tag="well_state" />
+        <ValueSymbol tag="corrosion_risk" />
       </div>
 
       <div className="display-gauges">
         <GaugeSymbol tag="whp" />
         <GaugeSymbol tag="pt_downhole" />
+        <GaugeSymbol tag="corrosion_risk" />
       </div>
 
       <div className="display-trend">
@@ -106,6 +109,12 @@ export function OilWellDetail() {
 
       <div className="display-events">
         <EventsTable />
+      </div>
+
+      {/* Demo control — visually distinct from operational HMI panels
+          via dashed border + "⚙ DEMO" badge. See InjectionPanel.css. */}
+      <div className="display-injection">
+        <InjectionPanel />
       </div>
     </div>
   );

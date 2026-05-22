@@ -185,7 +185,7 @@
 
 .display-values {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 10px;
 }
 
@@ -212,7 +212,7 @@
 
 .display-gauges {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
@@ -358,4 +358,15 @@
 
 .display-events {
   width: 100%;
+}
+
+/* ---- Demo injection panel zone ----
+
+   Extra top margin opens a small "this is a different kind of thing"
+   gap between the operational rows and the demo control. The panel
+   itself carries the dashed-border / DEMO-badge styling. */
+
+.display-injection {
+  width: 100%;
+  margin-top: 8px;
 }
