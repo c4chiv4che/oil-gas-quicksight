@@ -77,12 +77,21 @@ function WellCard({ well }: { well: string }) {
   const setActiveWell = useAssetStore((s) => s.setActiveWell);
   const navigateTo = useDisplayStore((s) => s.navigateTo);
 
-  // Three independent live readings for this well. Each useSeries call
+  // Four independent live readings for this well. Each useSeries call
   // is bound to `well` (not activeWell) so each card tracks its own
   // pump even though they all share simTime.
+  //
+  // corrosion_risk participates in the cardState color but is NOT shown
+  // as a metric: the metric row stays focused on production rates
+  // (oil + gas), which is what an operator scans for. The color is
+  // sufficient signal that "something is off here"; drilling into the
+  // detail surfaces the why. This also keeps the demo injection feature
+  // honest — a slider in the Detail can light up the Overview without
+  // having to widen the card layout for a single-purpose readout.
   const { currentValue: wellStateRaw } = useSeries("well_state", well);
   const { currentValue: oilRaw } = useSeries("ft_oil", well);
   const { currentValue: gasRaw } = useSeries("ft_gas", well);
+  const { currentValue: corrosionRaw } = useSeries("corrosion_risk", well);
 
   const wellStateStr = typeof wellStateRaw === "string" ? wellStateRaw : "";
   const wsState: ProcessState =
@@ -90,10 +99,15 @@ function WellCard({ well }: { well: string }) {
 
   const oil = typeof oilRaw === "number" ? oilRaw : null;
   const gas = typeof gasRaw === "number" ? gasRaw : null;
+  const corrosion = typeof corrosionRaw === "number" ? corrosionRaw : null;
   const oilState = evaluateState(oil, getLimits("ft_oil", well));
   const gasState = evaluateState(gas, getLimits("ft_gas", well));
+  const corrosionState = evaluateState(
+    corrosion,
+    getLimits("corrosion_risk", well),
+  );
 
-  const cardState = worstOf(wsState, oilState, gasState);
+  const cardState = worstOf(wsState, oilState, gasState, corrosionState);
 
   const handleOpen = () => {
     setActiveWell(well);
