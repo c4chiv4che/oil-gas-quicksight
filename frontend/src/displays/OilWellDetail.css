@@ -46,6 +46,32 @@
   gap: 10px;
 }
 
+/* Discreet "back to Overview" breadcrumb button. Quiet by default
+   (muted text, no border) so it does not compete with the well select
+   for attention, but becomes obvious on hover. */
+.display-header__nav-back {
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--hmi-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.display-header__nav-back:hover {
+  color: var(--hmi-text);
+  border-color: var(--hmi-border);
+}
+
+.display-header__nav-back:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 1px;
+}
+
 /* Native <select> styled to match the rest of the HMI. We deliberately
    keep the browser's dropdown chrome (the arrow / option list) — only
    the closed-state box is restyled. <option> elements have very limited

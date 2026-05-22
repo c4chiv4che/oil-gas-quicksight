@@ -4,7 +4,7 @@ import { useSimStore } from "./sim/simStore";
 import { useAssetStore } from "./state/assetStore";
 import { loadWells, loadEsdEvents } from "./data/dataSource";
 import { TimeTransport } from "./components/TimeTransport";
-import { OilWellDetail } from "./displays/OilWellDetail";
+import { DisplayRouter } from "./displays/DisplayRouter";
 import type { HmiThemeName } from "./theme/theme";
 import "./theme/theme.css";
 
@@ -16,9 +16,9 @@ import "./theme/theme.css";
  *      covers exactly the loaded samples.
  *   3. App-chrome state: the active visualization theme.
  *
- * It is intentionally display-agnostic. OilWellDetail is rendered
- * directly today; when a second display arrives, a tiny switch (or
- * router) will live here without touching DataBoot or the clock.
+ * It is intentionally display-agnostic. The active display comes from
+ * DisplayRouter, which switches on useDisplayStore.activeDisplay. App
+ * itself never knows or cares which display is on screen.
  */
 export default function App() {
   useSimulationClock();
@@ -55,7 +55,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--hmi-bg)" }}>
       <TimeTransport theme={theme} onThemeChange={setTheme} />
-      <OilWellDetail />
+      <DisplayRouter />
     </div>
   );
 }

@@ -16,6 +16,7 @@
 
 import { useMemo } from "react";
 import { useAssetStore } from "../state/assetStore";
+import { useDisplayStore } from "../state/displayStore";
 import { useSimStore } from "../sim/simStore";
 import { useSeries } from "../data/useSeries";
 import { WELL_STATE_TO_PROCESS } from "../data/tagConfig";
@@ -98,6 +99,7 @@ function DisplayHeader({ well }: { well: string }) {
   // owns its own data and lives next to the value it controls.
   const wells = useAssetStore((s) => s.wells);
   const setActiveWell = useAssetStore((s) => s.setActiveWell);
+  const navigateTo = useDisplayStore((s) => s.navigateTo);
 
   // While DataBoot is still resolving the wells list, fall back to the
   // current `well` as the only option. Without this, React warns about a
@@ -107,6 +109,17 @@ function DisplayHeader({ well }: { well: string }) {
   return (
     <div className="display-header">
       <div className="display-header__title">
+        {/* Discreet "up one level" navigation. Sits leftmost in the
+            header so it reads as a breadcrumb, not as an action on the
+            current well. Wired to displayStore — no URL, no history. */}
+        <button
+          type="button"
+          className="display-header__nav-back"
+          onClick={() => navigateTo("overview")}
+          aria-label="Back to Overview"
+        >
+          ← Overview
+        </button>
         {/* Native <select>: keyboard, screen-reader and mobile UX come
             free. We style the box (background, border, text) with HMI
             tokens; <option> rendering stays browser-native by design. */}
