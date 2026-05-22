@@ -5,6 +5,7 @@ import { useAssetStore } from "./state/assetStore";
 import { loadWells } from "./data/dataSource";
 import { ClockProbe } from "./components/ClockProbe";
 import { ValueSymbol } from "./symbols/ValueSymbol";
+import { GaugeSymbol } from "./symbols/GaugeSymbol";
 import { TrendSymbol } from "./symbols/TrendSymbol";
 import type { TrendConfig } from "./symbols/trendConfig";
 import type { HmiThemeName } from "./theme/theme";
@@ -111,6 +112,19 @@ export default function App() {
         <ValueSymbol tag="chp" />
         <ValueSymbol tag="tt_flow" />
         <ValueSymbol tag="well_state" />
+      </div>
+
+      {/* Gauge probe — radial dial, same tag/well wiring as the value box. */}
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          marginTop: "24px",
+          flexWrap: "wrap",
+        }}
+      >
+        <GaugeSymbol tag="whp" />
+        <GaugeSymbol tag="pt_downhole" />
       </div>
 
       {/* Trend probe — two-series, multi-axis trend on activeWell. */}
