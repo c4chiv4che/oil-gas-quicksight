@@ -1,0 +1,159 @@
+/* ============================================================
+   OilWellDetail — HMI display layout.
+
+   Fixed 1366px width, centered. CSS Grid hierarchy:
+
+     [ display header ]                            full width
+     [ value | value | value | value ]             4 equal columns
+     [ gauges (260px) | trend (1fr) ]              two columns
+     [ events table ]                              full width
+
+   The TimeTransport bar lives OUTSIDE this shell (rendered by App
+   at the top of the page), so the display owns only its own zones.
+
+   No hex colors here — only var(--hmi-*) tokens so the theme toggle
+   reskins everything for free.
+   ============================================================ */
+
+.display-shell {
+  width: 1366px;
+  margin: 0 auto;
+  padding: 12px 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 10px;
+  color: var(--hmi-text);
+}
+
+/* ---- Header zone ---- */
+
+.display-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--hmi-header);
+  border: 1px solid var(--hmi-border);
+  border-bottom: 2px solid var(--hmi-accent);
+  border-radius: 4px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+.display-header__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.display-header__well {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text);
+}
+
+.display-header__name {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--hmi-text-muted);
+}
+
+.display-header__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+.display-header__state-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text-muted);
+}
+
+.display-header__state-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.display-header__state-value {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Value row ---- */
+
+.display-values {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+/* Each child is a ValueSymbol box; the symbol uses minWidth: 140px
+   inline, but width inside a 1fr column wins. Force them to stretch. */
+.display-values > * {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ---- Gauges row: two equal-width slots, full display width ----
+
+   Each slot spans ~half the display (~678px), which is far wider than
+   a radial gauge needs. Letting the SVG fill the column would render
+   the dial ~700×700px — absurd. Instead, the slot becomes a flex
+   column that centers the gauge, and the SVG is capped at ~280px on
+   both sides via max-width/max-height. The viewBox keeps the aspect
+   ratio; the leftover column width turns into balanced air on each
+   side. No GaugeSymbol changes needed.
+
+   The label inside GaugeSymbol is a plain <div>; under align-items:
+   center it shrinks to its text width and centers cleanly above the
+   dial, instead of stretching across the wide column. */
+
+.display-gauges {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.display-gauges > * {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.display-gauges > * > svg {
+  width: auto;
+  height: auto;
+  max-width: 280px;
+  max-height: 280px;
+}
+
+/* ---- Trend row: full display width.
+   TrendSymbol's internal ResizeObserver picks up the wider container
+   on mount + resize. Height stays at WRAPPER_HEIGHT (280px) inside
+   the symbol; with no sibling competing for height there's no balance
+   problem. */
+
+.display-trend {
+  width: 100%;
+  display: flex;
+}
+
+.display-trend > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Events zone ---- */
+
+.display-events {
+  width: 100%;
+}

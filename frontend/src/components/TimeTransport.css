@@ -1,0 +1,76 @@
+/* ============================================================
+   TimeTransport — global simulation control bar (top of app).
+   Visual contract: thin, sober, full width. Lives ABOVE every
+   display; not part of any display's own grid.
+   ============================================================ */
+
+.time-transport {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--hmi-header);
+  border-bottom: 1px solid var(--hmi-border);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  color: var(--hmi-text);
+}
+
+.time-transport__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-transport__btn {
+  background: var(--hmi-surface);
+  color: var(--hmi-text);
+  border: 1px solid var(--hmi-border-2);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  min-width: 32px;
+}
+
+.time-transport__btn:hover {
+  border-color: var(--hmi-accent);
+}
+
+.time-transport__btn--active {
+  background: var(--hmi-accent);
+  border-color: var(--hmi-accent);
+}
+
+.time-transport__scrubber {
+  width: 100%;
+  accent-color: var(--hmi-accent);
+}
+
+.time-transport__time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text);
+  min-width: 168px;
+  text-align: right;
+}
+
+.time-transport__theme {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hmi-border);
+}
+
+.time-transport__theme-label {
+  font-size: 10px;
+  color: var(--hmi-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
