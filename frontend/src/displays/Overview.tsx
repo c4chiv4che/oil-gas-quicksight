@@ -29,6 +29,7 @@
 import { useAssetStore } from "../state/assetStore";
 import { useDisplayStore } from "../state/displayStore";
 import { useSeries } from "../data/useSeries";
+import { useScaleToFit } from "../hooks/useScaleToFit";
 import { TAGS, getLimits, WELL_STATE_TO_PROCESS } from "../data/tagConfig";
 import {
   STATE_GLYPH,
@@ -39,17 +40,23 @@ import "./Overview.css";
 
 export function Overview() {
   const wells = useAssetStore((s) => s.wells);
+  // Proportional shrink for narrow viewports. Same hook as Detail —
+  // the WellCard grid keeps its native column count and column widths
+  // and the whole shell scales down as one image.
+  const { wrapperRef, shellRef } = useScaleToFit();
   return (
-    <div className="overview-shell">
-      <div className="overview-header">
-        <span className="overview-header__site">Vaca Muerta</span>
-        <span className="overview-header__sep">·</span>
-        <span className="overview-header__name">Well Overview</span>
-      </div>
-      <div className="overview-grid">
-        {wells.map((w) => (
-          <WellCard key={w} well={w} />
-        ))}
+    <div className="hmi-scale-wrapper" ref={wrapperRef}>
+      <div className="overview-shell" ref={shellRef}>
+        <div className="overview-header">
+          <span className="overview-header__site">Vaca Muerta</span>
+          <span className="overview-header__sep">·</span>
+          <span className="overview-header__name">Well Overview</span>
+        </div>
+        <div className="overview-grid">
+          {wells.map((w) => (
+            <WellCard key={w} well={w} />
+          ))}
+        </div>
       </div>
     </div>
   );

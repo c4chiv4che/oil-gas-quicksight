@@ -19,6 +19,7 @@ import { useAssetStore } from "../state/assetStore";
 import { useDisplayStore } from "../state/displayStore";
 import { useSimStore } from "../sim/simStore";
 import { useSeries } from "../data/useSeries";
+import { useScaleToFit } from "../hooks/useScaleToFit";
 import { WELL_STATE_TO_PROCESS } from "../data/tagConfig";
 import { STATE_GLYPH, type ProcessState } from "../theme/theme";
 import { ValueSymbol } from "../symbols/ValueSymbol";
@@ -35,6 +36,10 @@ export function OilWellDetail() {
   const activeWell = useAssetStore((s) => s.activeWell);
   const windowStart = useSimStore((s) => s.windowStart);
   const windowEnd = useSimStore((s) => s.windowEnd);
+  // Proportional shrink for narrow viewports. The hook transforms the
+  // shell only — every inner layout (including the uPlot trends) stays
+  // at design size and gets scaled by the compositor.
+  const { wrapperRef, shellRef } = useScaleToFit();
 
   // Display owns its own trend specs. Memoized so TrendSymbol's mount
   // effect deps stay stable across unrelated re-renders.
@@ -70,51 +75,53 @@ export function OilWellDetail() {
   }, [windowStart, windowEnd]);
 
   return (
-    <div className="display-shell">
-      <DisplayHeader well={activeWell} />
+    <div className="hmi-scale-wrapper" ref={wrapperRef}>
+      <div className="display-shell" ref={shellRef}>
+        <DisplayHeader well={activeWell} />
 
-      {/* EsdBanner renders null when no ESD is running, so it does not
-          become a grid item and the row-gap between header and values
-          stays identical to the baseline layout. */}
-      <EsdBanner />
+        {/* EsdBanner renders null when no ESD is running, so it does not
+            become a grid item and the row-gap between header and values
+            stays identical to the baseline layout. */}
+        <EsdBanner />
 
-      <div className="display-values">
-        <ValueSymbol tag="whp" />
-        <ValueSymbol tag="chp" />
-        <ValueSymbol tag="tt_flow" />
-        <ValueSymbol tag="ft_oil" />
-        <ValueSymbol tag="ft_gas" />
-        <ValueSymbol tag="well_state" />
-        <ValueSymbol tag="corrosion_risk" />
-      </div>
+        <div className="display-values">
+          <ValueSymbol tag="whp" />
+          <ValueSymbol tag="chp" />
+          <ValueSymbol tag="tt_flow" />
+          <ValueSymbol tag="ft_oil" />
+          <ValueSymbol tag="ft_gas" />
+          <ValueSymbol tag="well_state" />
+          <ValueSymbol tag="corrosion_risk" />
+        </div>
 
-      <div className="display-gauges">
-        <GaugeSymbol tag="whp" />
-        <GaugeSymbol tag="pt_downhole" />
-        <GaugeSymbol tag="corrosion_risk" />
-      </div>
+        <div className="display-gauges">
+          <GaugeSymbol tag="whp" />
+          <GaugeSymbol tag="pt_downhole" />
+          <GaugeSymbol tag="corrosion_risk" />
+        </div>
 
-      <div className="display-trend">
-        {trendConfig && <TrendSymbol config={trendConfig} />}
-      </div>
+        <div className="display-trend">
+          {trendConfig && <TrendSymbol config={trendConfig} />}
+        </div>
 
-      <div className="display-trend">
-        {whpTrendConfig && <TrendSymbol config={whpTrendConfig} />}
-      </div>
+        <div className="display-trend">
+          {whpTrendConfig && <TrendSymbol config={whpTrendConfig} />}
+        </div>
 
-      {/* EsdSequence renders null when inEsdRange is false (same gating
-          as EsdBanner), so it does not become a grid item in normal
-          operation and the row-gap to events stays unchanged. */}
-      <EsdSequence />
+        {/* EsdSequence renders null when inEsdRange is false (same gating
+            as EsdBanner), so it does not become a grid item in normal
+            operation and the row-gap to events stays unchanged. */}
+        <EsdSequence />
 
-      <div className="display-events">
-        <EventsTable />
-      </div>
+        <div className="display-events">
+          <EventsTable />
+        </div>
 
-      {/* Demo control — visually distinct from operational HMI panels
-          via dashed border + "⚙ DEMO" badge. See InjectionPanel.css. */}
-      <div className="display-injection">
-        <InjectionPanel />
+        {/* Demo control — visually distinct from operational HMI panels
+            via dashed border + "⚙ DEMO" badge. See InjectionPanel.css. */}
+        <div className="display-injection">
+          <InjectionPanel />
+        </div>
       </div>
     </div>
   );

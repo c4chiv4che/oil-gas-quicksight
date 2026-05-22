@@ -1,0 +1,35 @@
+/* ============================================================
+   useScaleToFit — wrapper for proportional HMI scaling.
+
+   The inner shell (display-shell / overview-shell) keeps its native
+   1366px design width. The hook applies transform: scale to it; the
+   wrapper centers the scaled box and clips the unscaled layout box
+   that still claims 1366px wide.
+
+   overflow: hidden is essential: the shell's layout box stays 1366px
+   wide even after transform (transforms do not affect layout), so on
+   viewports < 1366 the shell's box overhangs the wrapper on both
+   sides. The visible (scaled) shell sits inside the wrapper bounds;
+   the overhanging layout box gets clipped here and never causes
+   horizontal scrollbars.
+   ============================================================ */
+
+.hmi-scale-wrapper {
+  display: flex;
+  justify-content: center;
+  /* align-items: flex-start is LOAD-BEARING. Default `stretch` would
+     cap the shell's cross-axis (height) to whatever we write into
+     wrapper.style.height — and we write a SMALL value at mount when
+     trends haven't rendered yet (trendConfig depends on simStore's
+     windowStart, which is 0 until DataBoot's loadWells resolves).
+     With stretch, the shell stays capped at that small height forever
+     (RO observes box, not content, so the shell's content growing
+     after data load does not re-fire applyScale) and on every resize
+     the loop tightens further. flex-start decouples shell height from
+     wrapper height entirely: the shell takes its natural content
+     height and our wrapper.height writes only affect the wrapper, as
+     intended. */
+  align-items: flex-start;
+  width: 100%;
+  overflow: hidden;
+}
