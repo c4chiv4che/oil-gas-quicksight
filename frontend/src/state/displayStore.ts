@@ -13,9 +13,9 @@ import { create } from "zustand";
  * vs "which well") subscribe independently — components that follow
  * one do not re-render on the other.
  *
- * Default lands on "oil-well-detail" because that is the only fully
- * rendering display today; once Overview is built, the default moves
- * there.
+ * Default lands on "overview": it is the natural entry point of the
+ * HMI — see the whole site at a glance, then drill into a well. The
+ * "← Overview" button in the Oil Well Detail header returns here.
  */
 
 export type DisplayId = "overview" | "oil-well-detail";
@@ -26,6 +26,6 @@ export interface DisplayState {
 }
 
 export const useDisplayStore = create<DisplayState>((set) => ({
-  activeDisplay: "oil-well-detail",
+  activeDisplay: "overview",
   navigateTo: (id) => set({ activeDisplay: id }),
 }));

@@ -1,0 +1,222 @@
+/* ============================================================
+   Overview — site-wide grid of well cards.
+
+   Layout:
+     [ overview header ]                                    full width
+     [ card | card ]                                        2x2 grid
+     [ card | card ]
+
+   No hex colors — every visible value comes from var(--hmi-*) or
+   var(--state-*) so the theme toggle reskins the display for free.
+   ============================================================ */
+
+.overview-shell {
+  width: 1366px;
+  margin: 0 auto;
+  padding: 12px 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 10px;
+  color: var(--hmi-text);
+}
+
+/* ---- Header ---- */
+
+.overview-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--hmi-header);
+  border: 1px solid var(--hmi-border);
+  border-bottom: 2px solid var(--hmi-accent);
+  border-radius: 4px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+.overview-header__site {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+}
+
+.overview-header__sep {
+  color: var(--hmi-text-muted);
+}
+
+.overview-header__name {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--hmi-text-muted);
+}
+
+/* ---- 2x2 grid of well cards ---- */
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: minmax(180px, auto);
+  gap: 10px;
+}
+
+/* ---- Well card -----------------------------------------------------
+
+   The card IS a <button>, so we strip the browser's default chrome
+   (background, border, text-align) and replace it with our HMI look.
+   data-state on the root drives both border tint and the derrick
+   color via descendant rules. Hover/focus surface accent without
+   changing the state color (so "this card is clickable" never reads
+   as a state change). */
+
+.well-card {
+  /* reset native <button> defaults */
+  all: unset;
+  /* layout */
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  row-gap: 8px;
+  padding: 12px 14px;
+  /* skin */
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  color: var(--hmi-text);
+  cursor: pointer;
+  box-sizing: border-box;
+  /* color used by the derrick (currentColor); per-state overrides below */
+  --card-accent: var(--state-normal);
+}
+
+.well-card:hover {
+  border-color: var(--hmi-accent);
+  background: var(--hmi-header);
+}
+
+.well-card:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 2px;
+}
+
+/* Per-cardState skin. Border tint is the at-a-glance signal; the
+   alarm card also gets a subtle background wash so it pops in the 2x2
+   grid even on a quick scan. Normal/stale keep the neutral surface so
+   the alarm card has somewhere to stand out FROM. */
+
+.well-card[data-state="normal"] {
+  --card-accent: var(--state-normal);
+}
+
+.well-card[data-state="stale"] {
+  --card-accent: var(--state-stale);
+  border-color: var(--hmi-border);
+}
+
+.well-card[data-state="warn"] {
+  --card-accent: var(--state-warn);
+  border-color: var(--state-warn);
+}
+
+.well-card[data-state="alarm"] {
+  --card-accent: var(--state-alarm);
+  border-color: var(--state-alarm-border);
+  background: var(--state-alarm-bg);
+}
+
+/* Hover overrides the per-state border with --hmi-accent above; we
+   want the alarm card to keep the alarm border on hover so the state
+   never appears to change because the cursor moved. Restore it. */
+.well-card[data-state="alarm"]:hover {
+  border-color: var(--state-alarm);
+}
+
+/* ---- Card sub-zones ---- */
+
+.well-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.well-card__derrick {
+  /* currentColor lives here; this is the painted color of the tower */
+  color: var(--card-accent);
+  flex: 0 0 auto;
+}
+
+.well-card__id {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--hmi-text);
+}
+
+.well-card__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* well_state label keeps its OWN color (separate from cardState) so
+   "PRODUCING" stays neutral, "SHUTDOWN" stays stale-grey — preserving
+   the distinction that the card-level red comes from production loss,
+   not from overloading the state mapping. */
+.well-card__state[data-state="normal"] { color: var(--state-normal); }
+.well-card__state[data-state="stale"]  { color: var(--state-stale);  }
+.well-card__state[data-state="warn"]   { color: var(--state-warn);   }
+.well-card__state[data-state="alarm"]  { color: var(--state-alarm);  }
+
+.well-card__state-glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.well-card__state-label {
+  text-transform: uppercase;
+}
+
+.well-card__metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 4px;
+  align-content: end;
+}
+
+.well-card__metric {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.well-card__metric-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text-muted);
+}
+
+/* Per-metric value color tracks that metric's own state, NOT the card
+   state. A SHUTDOWN well shows oil/gas in alarm-red (they ARE off-spec
+   because flow dropped); a PRODUCING well with one off-spec rate shows
+   only that one tinted, which is what "answer why it's red without an
+   extra click" actually means. */
+.well-card__metric-value {
+  font-size: 18px;
+  font-weight: 500;
+}
+.well-card__metric[data-state="normal"] .well-card__metric-value { color: var(--state-normal); }
+.well-card__metric[data-state="stale"]  .well-card__metric-value { color: var(--state-stale);  }
+.well-card__metric[data-state="warn"]   .well-card__metric-value { color: var(--state-warn);   }
+.well-card__metric[data-state="alarm"]  .well-card__metric-value { color: var(--state-alarm);  }
+
+.well-card__metric-unit {
+  font-size: 11px;
+  color: var(--hmi-text-muted);
+}
