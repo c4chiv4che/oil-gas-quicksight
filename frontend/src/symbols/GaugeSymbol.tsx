@@ -25,6 +25,7 @@ import {
   STATE_GLYPH,
   buildZones,
   evaluateState,
+  scaleMaxFor,
   type ProcessState,
 } from "../theme/theme";
 import type { WellRow } from "../data/dataSource";
@@ -116,7 +117,12 @@ export function GaugeSymbol({ tag, well, variant = "radial" }: Props) {
   const limits = getLimits(tag as string, effectiveWell);
   const state: ProcessState = evaluateState(numeric, limits);
 
-  const scaleMax = limits.hihiLimit ?? DEFAULT_SCALE_MAX;
+  // Top out at hihi*1.1 (shared with the trend) so buildZones() emits an
+  // alarm segment above hihi and the needle enters red on a hihi crossing —
+  // not pinned at the dial extreme. Fall back to a flat default when the
+  // tag has no hihi limit.
+  const scaleMax =
+    limits.hihiLimit != null ? scaleMaxFor(limits.hihiLimit) : DEFAULT_SCALE_MAX;
   const zones = buildZones(limits, scaleMax);
 
   const valueColor = `var(--state-${state})`;

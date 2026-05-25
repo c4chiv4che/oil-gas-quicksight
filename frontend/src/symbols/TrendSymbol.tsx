@@ -41,7 +41,7 @@ import { useWellsCache } from "../data/dataSource";
 import { useAssetStore } from "../state/assetStore";
 import { useSimStore } from "../sim/simStore";
 import { TAGS, getLimits } from "../data/tagConfig";
-import { buildZones, readCssVar, type Zone } from "../theme/theme";
+import { buildZones, readCssVar, scaleMaxFor, type Zone } from "../theme/theme";
 import type { TrendConfig, TrendSeriesConfig, TrendAxisSide } from "./trendConfig";
 import "./TrendSymbol.css";
 
@@ -106,24 +106,9 @@ function dataRange(arrs: number[][]): { min: number; max: number } | null {
   return { min: mn - pad, max: mx + pad };
 }
 
-/** Round x UP to a "nice" axis bound. 77 → 80, 33 → 40, 7.7 → 8. Keeps ticks
- *  legible without forcing huge headroom (avoids the snapNumY 33→50 jump).
- */
-function niceCeil(x: number): number {
-  if (!Number.isFinite(x) || x <= 0) return x;
-  const exp = Math.floor(Math.log10(x));
-  const pow = Math.pow(10, exp);
-  const norm = x / pow;
-  const steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-  for (const s of steps) {
-    if (norm <= s + 1e-9) return s * pow;
-  }
-  return 10 * pow;
-}
-
 /** Resolve a fixed Y range for one axis, with precedence:
  *    1. Explicit yMin/yMax on any series on this axis (union).
- *    2. Tag limits via getLimits — union of [min(0, lolo), niceCeil(hihi*1.1)].
+ *    2. Tag limits via getLimits — union of [min(0, lolo), scaleMaxFor(hihi)].
  *    3. Data-derived (full day, includes shutdown 0s).
  *  Returns null only when the axis has no series. Passing the result as
  *  `range: [min, max]` (array form) forces uPlot's sc.auto = false, so the
@@ -157,7 +142,7 @@ function axisRange(
     const lim = getLimits(series[i].tag as string, well);
     if (lim.hihiLimit != null) {
       limMins.push(Math.min(0, lim.loloLimit ?? 0));
-      limMaxs.push(niceCeil(lim.hihiLimit * 1.1));
+      limMaxs.push(scaleMaxFor(lim.hihiLimit));
     }
   }
   if (limMins.length === idxs.length) {

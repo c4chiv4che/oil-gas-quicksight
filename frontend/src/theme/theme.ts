@@ -172,3 +172,39 @@ export function buildZones(limits: StateLimits, scaleMax: number): Zone[] {
   }
   return zones;
 }
+
+/** Round x UP to a "nice" axis bound. 77 → 80, 33 → 40, 7.7 → 8. Keeps ticks
+ *  legible without forcing huge headroom (avoids the snapNumY 33→50 jump).
+ */
+function niceCeil(x: number): number {
+  if (!Number.isFinite(x) || x <= 0) return x;
+  const exp = Math.floor(Math.log10(x));
+  const pow = Math.pow(10, exp);
+  const norm = x / pow;
+  const steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  for (const s of steps) {
+    if (norm <= s + 1e-9) return s * pow;
+  }
+  return 10 * pow;
+}
+
+/**
+ * Upper bound of a value scale, derived from a tag's hihi limit with 10%
+ * headroom rounded to a "nice" axis bound.
+ *
+ * The headroom is what makes the alarm zone VISIBLE on a fixed scale: with
+ * a top of exactly hihi, buildZones() produces no segment above hihi, so a
+ * radial arc has no red band and the needle just pins at the dial extreme.
+ * Topping out at hihi*1.1 instead gives buildZones() a (hihi, scaleMax]
+ * span it classifies as "alarm" — the needle/trace crosses INTO red past
+ * hihi.
+ *
+ * Single source of truth for GaugeSymbol (radial arc top) and TrendSymbol
+ * (axis max): the 1.1 factor is deliberately the SAME for both so the gauge
+ * and trend of one tag share one scale. Change it here and both move
+ * together — that consistency is worth more than a fatter red band on
+ * either surface alone.
+ */
+export function scaleMaxFor(hihiLimit: number): number {
+  return niceCeil(hihiLimit * 1.1);
+}
