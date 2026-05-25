@@ -1,5 +1,5 @@
 /**
- * ValueSymbol — first HMI symbol. PI Vision-style single-tag readout:
+ * ValueSymbol — first HMI symbol. Control-room HMI single-tag readout:
  * label on top, large value, unit on the side, glyph + color for the
  * process state.
  *

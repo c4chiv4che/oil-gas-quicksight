@@ -2,8 +2,9 @@
  * EsdBanner — full-width SCADA-style declaration that an ESD is in
  * progress. Sits at the top of OilWellDetail (below the header, above
  * the value row) and answers "what is happening RIGHT NOW" without
- * forcing the operator to infer it from scattered symptoms — the
- * proactive-detection idea borrowed from Dominion/Meridian.
+ * forcing the operator to infer it from scattered symptoms — a
+ * proactive-detection idea inspired by real-world condition-monitoring
+ * case studies.
  *
  * Visibility is gated on `inEsdRange` from `useActiveEsdPhase`, not on
  * the phase index, so the banner stays up across the micro-gaps

@@ -53,6 +53,33 @@
   color: var(--hmi-text-muted);
 }
 
+/* Drill-in button — pushed to the far right of the header. Styled as a
+   subtle accent link (not a heavy button) so it reads as navigation,
+   consistent with the "← Overview" breadcrumb in the detail displays. */
+.overview-header__nav-pad {
+  all: unset;
+  margin-left: auto;
+  padding: 4px 10px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hmi-accent);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.overview-header__nav-pad:hover {
+  border-color: var(--hmi-accent);
+  background: var(--hmi-surface);
+}
+
+.overview-header__nav-pad:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 2px;
+}
+
 /* ---- 2x2 grid of well cards ---- */
 
 .overview-grid {

@@ -12,7 +12,7 @@
 
 End-to-end data engineering project that simulates a realistic Vaca Muerta shale operation (wellpad + gas processing plant + utilities) and lands the data in AWS for analysis with Athena and QuickSight.
 
-A static **HMI frontend** (React + Vite, PI-Vision-style) replays the dataset as a live demo — see [Live HMI](#-live-hmi--c4chiv4chegithubiooil-gas-quicksight) below.
+A static **HMI frontend** (React + Vite, control-room HMI style) replays the dataset as a live demo — see [Live HMI](#-live-hmi--c4chiv4chegithubiooil-gas-quicksight) below.
 
 Built as a learning project to combine 4 years of OT/industrial automation experience with modern cloud data tooling, calibrated against training material authored by senior Argentinian O&G professionals.
 
@@ -20,7 +20,7 @@ Built as a learning project to combine 4 years of OT/industrial automation exper
 
 ## 🖥️ Live HMI — [c4chiv4che.github.io/oil-gas-quicksight](https://c4chiv4che.github.io/oil-gas-quicksight/)
 
-A browser-based **SCADA-style HMI** that replays the recorded dataset as a simulated real-time feed — no servers, no streaming infrastructure, just a static site reading versioned JSON. It mirrors the look and interaction model of **AVEVA PI Vision**, the historian/visualization tool used in the ITP Neuquén control-room operator course this project is calibrated against.
+A browser-based **SCADA-style HMI** that replays the recorded dataset as a simulated real-time feed — no servers, no streaming infrastructure, just a static site reading versioned JSON. It is modeled on the look and interaction patterns of industry-standard control-room HMI / data-historian visualization tools — the kind used in the **ITP Neuquén control-room operator course** this project is calibrated against.
 
 What you can do in the live demo:
 
@@ -104,7 +104,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 
 ### Frontend HMI (live demo path)
 
-Separately from the AWS analytics path, the simulator's recorded output is committed to the repo as static JSON and served by a React/Vite single-page app on GitHub Pages. This gives a permanently-live "real-time" demo without keeping streaming infrastructure running. The HMI reads the same physical signals (per-well pressures, temperatures, production rates) and the ESD event timeline, and renders them through PI-Vision-style symbols (value boxes, radial gauges, trends, an events table) on a shared simulated clock.
+Separately from the AWS analytics path, the simulator's recorded output is committed to the repo as static JSON and served by a React/Vite single-page app on GitHub Pages. This gives a permanently-live "real-time" demo without keeping streaming infrastructure running. The HMI reads the same physical signals (per-well pressures, temperatures, production rates) and the ESD event timeline, and renders them through control-room HMI symbols (value boxes, radial gauges, trends, an events table) on a shared simulated clock.
 
 Design decisions worth noting:
 
@@ -285,7 +285,7 @@ Current dataset spans **2025-11-20 → 2026-05-19** (181 days, 1-minute frequenc
 - **Kinesis streaming pipeline** — Kinesis Data Streams + Firehose JSON→Parquet + dedicated streaming crawlers for all 3 layers (operated on-demand)
 - **Two-identity IAM model** — narrow `oil-gas-dev` runtime policy + documented `oil-gas-deploy-policy` for admin operations
 - Comprehensive test suite — 190 automated tests, 93% coverage
-- **Live HMI frontend** — PI-Vision-style SCADA HMI (React + Vite + TypeScript) deployed to GitHub Pages; recorded dataset replayed as a simulated real-time feed. Well Overview + per-well detail, multi-state alarms, live trends, ESD event timeline, ISA-101 theming, asset switching, and display navigation.
+- **Live HMI frontend** — SCADA-style control-room HMI (React + Vite + TypeScript) deployed to GitHub Pages; recorded dataset replayed as a simulated real-time feed. Well Overview + per-well detail, multi-state alarms, live trends, ESD event timeline, ISA-101 theming, asset switching, and display navigation.
 - **Automated Pages deploy** — GitHub Actions builds the frontend and publishes to GitHub Pages on every push to `main` (official Pages actions, OIDC, no `gh-pages` branch).
 
 ### 🚧 Pending

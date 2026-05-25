@@ -1,6 +1,6 @@
 /**
- * EsdSequence — phase-duration summary of the in-progress ESD, in PI
- * Vision / Meridian "Values of Selected Stop" style. Renders ALL N
+ * EsdSequence — phase-duration summary of the in-progress ESD, in a
+ * control-room HMI phase-summary style. Renders ALL N
  * phases as a row of KPI cells (1..N), each showing its name and
  * duration; the cell whose [tStart, tEnd] window contains simTime is
  * highlighted as ACTIVE (same alarm tint as EventsTable's active row).

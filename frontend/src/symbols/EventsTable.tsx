@@ -1,11 +1,11 @@
 /**
- * EventsTable — live ESD phase log (PI Vision style).
+ * EventsTable — live ESD phase log (SCADA/historian style).
  *
  * Renders ESD phases as a growing log: only phases whose phase_start
  * <= simTime appear (option B — no future preview). The phase whose
  * [phase_start, phase_end] window contains simTime is highlighted as
  * "active" — the operator sees which step of the shutdown sequence is
- * running right now, the same idea as Meridian's stop-sequence panel.
+ * running right now, the same idea as a control-room stop-sequence panel.
  *
  * Re-render contract: `visibleCount` and `activePhaseIndex` come from
  * the shared `useActiveEsdPhase` hook, where they live behind primitive

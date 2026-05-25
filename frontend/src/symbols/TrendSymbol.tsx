@@ -262,8 +262,8 @@ export function TrendSymbol({ config }: Props) {
     const rangeLeft = axisRange("left", config.series, view.series, view.well);
     const rangeRight = axisRange("right", config.series, view.series, view.well);
 
-    // Bands: a mono-series feature (PI Vision's "Add Multi-State or Bands"
-    // pattern). Multi-axis trends are ambiguous — which series' limits
+    // Bands: a mono-series feature (the industry-standard "multi-state or
+    // bands" pattern). Multi-axis trends are ambiguous — which series' limits
     // decide the zones? — so bands are silently disabled when
     // series.length > 1, regardless of the flag value. The default for
     // a mono-series trend is bands ON; consumers can opt out with

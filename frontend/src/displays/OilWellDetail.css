@@ -249,7 +249,7 @@
 
 /* ---- ESD Sequence panel ----
 
-   Phase-duration summary in PI Vision / Meridian style. All N phases
+   Phase-duration summary in a control-room HMI style. All N phases
    visible at once as a row of KPI cells; the active phase is
    highlighted with the same alarm tint as the active row in
    EventsTable, future phases are dimmed at 0.45 opacity.
