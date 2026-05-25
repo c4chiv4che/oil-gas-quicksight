@@ -12,7 +12,7 @@
 
 End-to-end data engineering project that simulates a realistic Vaca Muerta shale operation (wellpad + gas processing plant + utilities) and lands the data in AWS for analysis with Athena and QuickSight.
 
-A static **HMI frontend** (React + Vite, control-room HMI style) replays the dataset as a live demo — see [Live HMI](#-live-hmi--c4chiv4chegithubiooil-gas-quicksight) below.
+A static **HMI frontend** (React + Vite, control-room HMI style) replays the dataset as a [live demo](https://c4chiv4che.github.io/oil-gas-quicksight/) — see the [Live HMI section](#-live-hmi--c4chiv4chegithubiooil-gas-quicksight) below.
 
 Built as a learning project to combine 4 years of OT/industrial automation experience with modern cloud data tooling, calibrated against training material authored by senior Argentinian O&G professionals.
 
@@ -112,6 +112,16 @@ Design decisions worth noting:
 - **Multi-state from real percentile limits** — per-well alarm thresholds (lo/lolo/hi/hihi) tuned from the dataset's own p5–p95 of PRODUCING samples, so color reflects each well's normal operating envelope.
 - **SHUTDOWN is "stale", not "alarm"** — a deliberate operational stop is greyed out, not red; red is reserved for a genuine failure. The Overview cards combine this with production state (oil/gas below lolo) so a tripped plant still reads as alarm — honestly derived, not hard-coded.
 - **The ESD is plant-wide** — the event log and banner are the same regardless of which well you view, because the 2026-03-15 trip is a plant trip that takes all wells down at once.
+
+### QuickSight embed API (built, validated — deliberately not deployed)
+
+The live HMI above is fully static and needs no backend. *Separately*, a server-side endpoint exists in code to optionally surface a **live QuickSight dashboard** inside that same static site: an API Gateway HTTP API → Lambda that calls QuickSight's `GenerateEmbedUrlForRegisteredUser` and returns a short-lived embed URL. It is built and passes `terraform validate`, but is **deliberately not deployed**:
+
+- **Embedding requires QuickSight Enterprise (~$24/mo).** The project stays on Standard by design (see [Cost](#cost)) — not worth an irreversible edition upgrade just for a demo.
+- **No standing public endpoint.** Deploying would expose an internet-facing URL with no free tier.
+- On Standard the endpoint returns a clean `503 {"status":"embedding_unavailable"}`, so the design is demonstrable without deploying.
+
+Same on-demand posture as the streaming pipeline: ready to activate, not left running. Pattern, design decisions, and an activation runbook are in [ARCHITECTURE.md → QuickSight embed API](docs/ARCHITECTURE.md#quicksight-embed-api-built-not-deployed).
 
 ---
 

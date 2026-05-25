@@ -218,6 +218,94 @@ S3 objects under `streaming/<layer>/` are kept (they're cheap and let
 Athena queries replay history). Delete them manually if you want a clean
 slate.
 
+## QuickSight embed API (built, not deployed)
+
+A server-side path that lets the **static** GitHub Pages site
+([the frontend](../README.md)) show a *live* QuickSight dashboard without a
+standing backend. It is built and `terraform validate`-clean in
+`infra/aws/quicksight-embed.tf` (+ `infra/aws/lambda/embed_url.py`), but is
+**not applied** — none of its resources appear in the "AWS resources currently
+deployed" table above, by design.
+
+```mermaid
+flowchart LR
+    SITE["GitHub Pages<br/>(static frontend)"] -->|"GET /embed-url"| API["API Gateway<br/>HTTP API v2"]
+    API -->|"AWS_PROXY (payload 2.0)"| L["Lambda<br/>Python 3.12 + boto3"]
+    L -->|"GenerateEmbedUrlForRegisteredUser"| QS["QuickSight<br/>(needs Enterprise)"]
+    QS -.->|"embedUrl / 503 on Standard"| L
+
+    classDef site fill:#1e3a5f,stroke:#4a9eff,color:#fff
+    classDef aws fill:#3d2817,stroke:#ff9900,color:#fff
+    class SITE site
+    class API,L,QS aws
+```
+
+- One route, `GET /embed-url`, on an HTTP API (v2) `$default` auto-deploy stage.
+- CORS **and** the IAM domain condition both pin the embeddable origin to
+  `https://c4chiv4che.github.io`.
+- The Lambda reads dashboard id, reader-user ARN, and namespace from env vars —
+  no ids or secrets baked into code.
+
+### Design decisions
+
+- **Registered-user, not anonymous embedding.**
+  `GenerateEmbedUrlForRegisteredUser` with one shared reader bills as a single
+  Enterprise reader (~$24/mo). Anonymous embedding needs **session-capacity
+  pricing (~$250/mo minimum)** — unjustified for a demo.
+- **One shared "public reader" identity.** The site embeds as a single fixed
+  reader (`oil-gas-public-reader`), not per-visitor users. READER is an
+  Enterprise-only role, so it can't even be created on Standard — it's registered
+  at activation time.
+- **IAM domain lock stricter than AWS's own sample.** The policy scopes
+  `quicksight:GenerateEmbedUrlForRegisteredUser` to the reader **user** ARN (the
+  action's only resource type) and constrains `quicksight:AllowedEmbeddingDomains`
+  with `ForAllValues:StringEquals` **plus a `Null:false` guard**. `ForAllValues`
+  alone evaluates *true* when the key is absent/empty (a bypass); AWS's published
+  QuickSight example omits the guard, so this is deliberately tighter.
+- **Graceful degradation on Standard.** Embedding is Enterprise-only; here the
+  QuickSight call raises `UnsupportedUserEditionException` (or
+  `UnsupportedPricingPlanException`). The Lambda catches both and returns **HTTP
+  503** `{"status":"embedding_unavailable","reason":"QuickSight Enterprise required"}`
+  instead of an opaque 500, so the endpoint is demonstrable today.
+
+### Activation runbook (the day Enterprise is funded)
+
+Run with the admin profile (`TF_VAR_aws_profile=default`), like every other
+privileged apply.
+
+1. **Upgrade** the account to QuickSight Enterprise (irreversible — there is no
+   downgrade back to Standard). This is the ~$24/mo decision the rest of the
+   design defers.
+2. **Register the shared reader** (READER is Enterprise-only, hence absent on
+   Standard):
+
+   ```bash
+   aws quicksight register-user \
+     --aws-account-id 919064997947 --namespace default \
+     --identity-type QUICKSIGHT --user-role READER \
+     --user-name oil-gas-public-reader --email habib.gramondi@gmail.com \
+     --region us-east-1
+   ```
+
+3. **Wire the Terraform inputs** — the dashboard to embed and the reader ARN:
+
+   ```bash
+   export TF_VAR_embed_dashboard_id=<dashboard-id>
+   export TF_VAR_embed_reader_user_arn=arn:aws:quicksight:us-east-1:919064997947:user/default/oil-gas-public-reader
+   ```
+
+4. **Apply:**
+
+   ```bash
+   cd infra/aws
+   TF_VAR_aws_profile=default terraform apply
+   ```
+
+5. **Share the dashboard with the reader** in QuickSight — embedding returns a
+   URL only for dashboards the reader is allowed to see.
+6. **Verify:** `curl "$(terraform output -raw embed_api_invoke_url)"` now returns
+   `{"embedUrl":"…"}` instead of the `503 embedding_unavailable`.
+
 ## Cost
 
 Approximate, honest, single-operator lab account. All figures USD/month.
@@ -282,6 +370,21 @@ capability, not to replace the historical store. **Trade-off:** Two
 tables per layer for callers to know about; analysts have to choose
 `wells` vs `streaming_wells`. Acceptable because the use cases differ
 (dashboards vs control-room demo).
+
+### (e) QuickSight embed API built but not deployed
+
+**Decision:** The full registered-user embedding stack
+(`infra/aws/quicksight-embed.tf` + `lambda/embed_url.py`) is written and
+`terraform validate`-clean, but intentionally **not applied**; on the current
+Standard account the endpoint self-reports `503 embedding_unavailable`.
+**Rationale:** It proves the embedding architecture end-to-end — least-privilege
+IAM scoping, the `Null`-guarded `AllowedEmbeddingDomains` condition, and graceful
+edition degradation — without committing to QuickSight Enterprise (~$24/mo, an
+irreversible upgrade) or standing up a public, no-free-tier endpoint. See the
+activation runbook above. **Trade-off:** the live-dashboard-in-the-site
+capability stays dormant until someone runs the runbook, and the code can drift
+from the QuickSight embedding API if AWS changes it before activation —
+mitigated by the small API surface (one call) and a short runbook.
 
 ## Known issues
 
