@@ -1,0 +1,257 @@
+/* ============================================================
+   Well Pad Detail — pad header + horizontal well collection.
+
+   Layout:
+     [ pad header: ← Overview / "LLL Pad · Vaca Muerta" ]   full width
+     [ col | col | col | col ]                              N-up row
+     [ disclaimer ]                                         footnote
+
+   The collection is one well template repeated per well, compared side
+   by side — the collection pattern of control-room HMI tools. No hex colors
+   — every value comes from var(--hmi-*) / var(--state-*) so the theme
+   toggle reskins the display for free.
+   ============================================================ */
+
+.pad-shell {
+  width: 1366px;
+  margin: 0 auto;
+  padding: 12px 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 14px;
+  color: var(--hmi-text);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/* ---- Pad header (two large title value-symbols) ---- */
+
+.pad-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--hmi-header);
+  border: 1px solid var(--hmi-border);
+  border-bottom: 2px solid var(--hmi-accent);
+  border-radius: 4px;
+}
+
+/* Breadcrumb — matches the "← Overview" affordance in the Oil Well
+   Detail so "up one level" reads identically across displays. */
+.pad-header__nav-back {
+  all: unset;
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--hmi-accent);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pad-header__nav-back:hover {
+  border-color: var(--hmi-accent);
+}
+
+.pad-header__nav-back:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 2px;
+}
+
+.pad-header__titles {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.pad-header__pad {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+}
+
+.pad-header__sep {
+  font-size: 26px;
+  color: var(--hmi-text-muted);
+}
+
+.pad-header__area {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+/* ---- Collection (N wells side by side) ----
+   grid-template-columns is set inline from the well count so the row
+   tracks the actual dataset (4 today). */
+
+.pad-collection {
+  display: grid;
+  gap: 12px;
+}
+
+/* ---- Well template (the repeated column) -----------------------------
+
+   Same button-as-card pattern as the Overview's WellCard: strip native
+   chrome, drive the derrick color + border tint from data-state, keep
+   hover/focus on the accent so "clickable" never reads as a state
+   change. data-state here is the well_state mapping (PRODUCING→normal,
+   SHUTDOWN→stale) — producing status is the focus here. */
+
+.well-column {
+  all: unset;
+  display: grid;
+  grid-template-rows: auto auto auto auto auto;
+  justify-items: center;
+  row-gap: 12px;
+  padding: 18px 14px;
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  /* color used by the derrick (currentColor); per-state overrides below */
+  --card-accent: var(--state-normal);
+}
+
+.well-column:hover {
+  border-color: var(--hmi-accent);
+  background: var(--hmi-header);
+}
+
+.well-column:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 2px;
+}
+
+.well-column[data-state="normal"] {
+  --card-accent: var(--state-normal);
+}
+
+.well-column[data-state="stale"] {
+  --card-accent: var(--state-stale);
+  border-color: var(--hmi-border);
+}
+
+.well-column[data-state="warn"] {
+  --card-accent: var(--state-warn);
+  border-color: var(--state-warn);
+}
+
+.well-column[data-state="alarm"] {
+  --card-accent: var(--state-alarm);
+  border-color: var(--state-alarm-border);
+  background: var(--state-alarm-bg);
+}
+
+/* Keep the alarm border on hover so the state never appears to change
+   because the cursor moved (same rule the WellCard uses). */
+.well-column[data-state="alarm"]:hover {
+  border-color: var(--state-alarm);
+}
+
+/* ---- Column sub-zones ---- */
+
+.well-column__derrick {
+  color: var(--card-accent);
+  width: 72px;
+  height: 92px;
+}
+
+.well-column__name {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--hmi-text);
+}
+
+.well-column__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* well_state label keeps its own color, same convention as the WellCard:
+   PRODUCING neutral, SHUTDOWN stale-grey. */
+.well-column__state[data-state="normal"] { color: var(--state-normal); }
+.well-column__state[data-state="stale"]  { color: var(--state-stale);  }
+.well-column__state[data-state="warn"]   { color: var(--state-warn);   }
+.well-column__state[data-state="alarm"]  { color: var(--state-alarm);  }
+
+.well-column__state-glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.well-column__metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.well-column__metric-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text-muted);
+}
+
+/* Downtime value stays neutral (no threshold defined for it). The Oil
+   Rate value tracks its OWN state via the data-state override below, same
+   as the WellCard metric — answers "is this rate off-spec" at a glance. */
+.well-column__metric-value {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--state-normal);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.well-column__metric[data-state="normal"] .well-column__metric-value { color: var(--state-normal); }
+.well-column__metric[data-state="stale"]  .well-column__metric-value { color: var(--state-stale);  }
+.well-column__metric[data-state="warn"]   .well-column__metric-value { color: var(--state-warn);   }
+.well-column__metric[data-state="alarm"]  .well-column__metric-value { color: var(--state-alarm);  }
+
+.well-column__metric-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--hmi-text-muted);
+}
+
+/* ---- Disclaimer (footnote) ----
+   Dashed border + muted text marks it as a note, not an operational
+   panel — same visual language as the demo InjectionPanel's dashed box. */
+
+.pad-disclaimer {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--hmi-text-muted);
+  background: var(--hmi-surface-2);
+  border: 1px dashed var(--hmi-border-2);
+  border-radius: 4px;
+}
+
+.pad-disclaimer strong {
+  color: var(--hmi-text);
+  font-weight: 600;
+}
+
+.pad-disclaimer em {
+  font-style: italic;
+  color: var(--hmi-text);
+}

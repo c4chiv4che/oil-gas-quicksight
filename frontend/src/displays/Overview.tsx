@@ -1,5 +1,5 @@
 /**
- * Overview — PI-Vision-style site overview. A grid of well cards, one
+ * Overview — control-room HMI site overview. A grid of well cards, one
  * per well, each tinted by its multi-state so the operator sees the
  * health of the whole site at a glance. Click a card to drill into the
  * Oil Well Detail for that well.
@@ -36,10 +36,12 @@ import {
   evaluateState,
   type ProcessState,
 } from "../theme/theme";
+import { DerrickIcon } from "../symbols/DerrickIcon";
 import "./Overview.css";
 
 export function Overview() {
   const wells = useAssetStore((s) => s.wells);
+  const navigateTo = useDisplayStore((s) => s.navigateTo);
   // Proportional shrink for narrow viewports. Same hook as Detail —
   // the WellCard grid keeps its native column count and column widths
   // and the whole shell scales down as one image.
@@ -51,6 +53,18 @@ export function Overview() {
           <span className="overview-header__site">Vaca Muerta</span>
           <span className="overview-header__sep">·</span>
           <span className="overview-header__name">Well Overview</span>
+          {/* Drill-in to the pad collection. Sits at the right of the
+              header (not over a card) so it reads as a display-level
+              jump, not an action on any one well. Faithful hierarchy:
+              site overview → pad detail → well detail. */}
+          <button
+            type="button"
+            className="overview-header__nav-pad"
+            onClick={() => navigateTo("well-pad-detail")}
+            aria-label="Open Well Pad Detail"
+          >
+            Well Pad Detail →
+          </button>
         </div>
         <div className="overview-grid">
           {wells.map((w) => (
@@ -130,7 +144,7 @@ function WellCard({ well }: { well: string }) {
       aria-label={`Open ${well} detail`}
     >
       <div className="well-card__top">
-        <DerrickIcon />
+        <DerrickIcon className="well-card__derrick" />
         <div className="well-card__id">{well}</div>
       </div>
 
@@ -185,45 +199,5 @@ function Metric({
       <span className="well-card__metric-value">{display}</span>
       <span className="well-card__metric-unit">{unit}</span>
     </div>
-  );
-}
-
-/**
- * DerrickIcon — minimalist oil-derrick glyph. Strokes use currentColor
- * so the card's CSS (color: var(--state-*)) repaints the whole tower
- * via the cardState attribute. Not photorealistic by design — this is
- * an HMI symbol, not artwork.
- */
-function DerrickIcon() {
-  return (
-    <svg
-      className="well-card__derrick"
-      width="56"
-      height="72"
-      viewBox="0 0 56 72"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {/* Crown block at the top of the tower */}
-      <rect x="22" y="4" width="12" height="6" />
-      {/* Two outer legs (truss frame) */}
-      <line x1="6" y1="64" x2="24" y2="10" />
-      <line x1="50" y1="64" x2="32" y2="10" />
-      {/* Horizontal cross beams */}
-      <line x1="18" y1="28" x2="38" y2="28" />
-      <line x1="14" y1="44" x2="42" y2="44" />
-      <line x1="10" y1="60" x2="46" y2="60" />
-      {/* Truss diagonals between cross beams */}
-      <line x1="18" y1="28" x2="42" y2="44" />
-      <line x1="38" y1="28" x2="14" y2="44" />
-      <line x1="14" y1="44" x2="46" y2="60" />
-      <line x1="42" y1="44" x2="10" y2="60" />
-      {/* Ground line */}
-      <line x1="2" y1="64" x2="54" y2="64" />
-    </svg>
   );
 }
