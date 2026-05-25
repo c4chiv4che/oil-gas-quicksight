@@ -5,6 +5,13 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.70"
     }
+    # Packages the embed-url Lambda (lambda/embed_url.py) into a zip for
+    # aws_lambda_function in quicksight-embed.tf. Terraform allows only one
+    # required_providers block per module, so it must live here.
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 }
 

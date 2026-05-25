@@ -24,3 +24,7 @@ output "runtime_policy_arn" {
   description = "ARN of the oil-gas-dev runtime managed policy (attached to oil-gas-dev). Replaces the 7 legacy inline policies on that user."
   value       = aws_iam_policy.runtime.arn
 }
+output "embed_api_invoke_url" {
+  description = "Public embed endpoint. The static site calls GET <this>/embed-url. Returns embedding_unavailable (HTTP 503) until QuickSight Enterprise is activated."
+  value       = "${aws_apigatewayv2_stage.embed.invoke_url}/embed-url"
+}
