@@ -283,7 +283,7 @@ privileged apply.
    aws quicksight register-user \
      --aws-account-id 919064997947 --namespace default \
      --identity-type QUICKSIGHT --user-role READER \
-     --user-name oil-gas-public-reader --email habib.gramondi@gmail.com \
+     --user-name oil-gas-public-reader --email your.email@example.com \
      --region us-east-1
    ```
 

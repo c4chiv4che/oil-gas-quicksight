@@ -21,7 +21,7 @@ variable "project" {
 
 variable "qs_notification_email" {
   description = "Email used when registering the IAM user as a QuickSight author."
-  default     = "habib.gramondi@gmail.com"
+  default     = "your.email@example.com"
 }
 
 variable "qs_iam_user_name" {
