@@ -57,6 +57,31 @@ A parallel **streaming pipeline** (Kinesis → Firehose JSON→Parquet → `stre
 
 ---
 
+## How it grew
+
+The system was built in three phases over about a week — each one layering a new
+capability on top of the last, never replacing it (Phase 3 work overlapped the
+tail of Phase 2):
+
+```mermaid
+flowchart LR
+    P1["📦 Phase 1 · Batch<br/>May 18–20<br/>3-layer simulator → Parquet<br/>S3 · Glue · Athena · QuickSight"]
+    P2["🌊 Phase 2 · Streaming<br/>May 21<br/>Kinesis → Firehose → streaming_* tables<br/>same simulator as a live feed (on-demand)"]
+    P3["🖥️ Phase 3 · Visualization<br/>May 21–26<br/>SCADA HMI on GitHub Pages<br/>+ QuickSight embed API (on-demand)"]
+
+    P1 ==>|"streaming added<br/>alongside batch"| P2
+    P2 ==>|"presentation<br/>layer added"| P3
+
+    classDef batch fill:#3d2817,stroke:#ff9900,color:#fff
+    classDef stream fill:#2d1f3d,stroke:#b46aff,color:#fff
+    classDef site fill:#1e3a5f,stroke:#4a9eff,color:#fff
+    class P1 batch
+    class P2 stream
+    class P3 site
+```
+
+---
+
 ## Architecture
 
 ```mermaid
