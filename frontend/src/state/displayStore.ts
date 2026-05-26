@@ -18,7 +18,11 @@ import { create } from "zustand";
  * "← Overview" button in the Oil Well Detail header returns here.
  */
 
-export type DisplayId = "overview" | "oil-well-detail" | "well-pad-detail";
+export type DisplayId =
+  | "overview"
+  | "oil-well-detail"
+  | "well-pad-detail"
+  | "analytics";
 
 export interface DisplayState {
   activeDisplay: DisplayId;

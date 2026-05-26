@@ -12,6 +12,7 @@ import { useDisplayStore } from "../state/displayStore";
 import { OilWellDetail } from "./OilWellDetail";
 import { Overview } from "./Overview";
 import { WellPadDetail } from "./WellPadDetail";
+import { AnalyticsDisplay } from "./AnalyticsDisplay";
 
 export function DisplayRouter() {
   const activeDisplay = useDisplayStore((s) => s.activeDisplay);
@@ -22,5 +23,7 @@ export function DisplayRouter() {
       return <OilWellDetail />;
     case "well-pad-detail":
       return <WellPadDetail />;
+    case "analytics":
+      return <AnalyticsDisplay />;
   }
 }

@@ -41,6 +41,15 @@
   --state-warn:    #e8a317;  /* low-priority alarm */
   --state-alarm:   #ff5b5b;  /* high-priority alarm / off-spec / trip */
 
+  /* COMPLIANCE-ONLY accent (NOT a live-operation process state). Used for
+     "in-spec / compliant" bands in compliance analytics (e.g. NAG-602),
+     where the operator expects a green=compliant / red=non-compliant
+     semaphore. It deliberately does NOT replace --state-normal (grey) on
+     operational symbols (gauges/values/live trends): grey = normal in
+     operation, green = in-spec in compliance are two distinct semantics
+     and must not be mixed. */
+  --state-ok:      #5aa775;  /* ISA-101: sober green, not strident */
+
   /* tinted backgrounds for boxes in alarm (subtle in ISA) */
   --state-warn-bg:  #20242a;
   --state-alarm-bg: #2a1414;
@@ -72,6 +81,11 @@
   --state-stale:   #5a6678;
   --state-warn:    #ffc02e;
   --state-alarm:   #ff4d4d;
+
+  /* Compliance-only in-spec accent (see ISA-101 block for the rationale).
+     High-contrast already speaks in saturated color, so the in-spec green
+     matches the vivid palette here. */
+  --state-ok:      #35c46b;
 
   --state-warn-bg:  #2a2410;
   --state-alarm-bg: #2e1212;

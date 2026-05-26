@@ -30,6 +30,10 @@ export const THEMES: Record<HmiThemeName, Record<string, string>> = {
     stateStale: "#6b7280",
     stateWarn: "#e8a317",
     stateAlarm: "#ff5b5b",
+    // Compliance-only in-spec accent (mirrors --state-ok in theme.css).
+    // Not a ProcessState: used by compliance analytics only, never by
+    // live-operation symbols. See the theme.css comment for the rule.
+    stateOk: "#5aa775",
     traceA: "#4a9eff",
     traceB: "#e8a317",
     accent: "#4a9eff",
@@ -48,6 +52,8 @@ export const THEMES: Record<HmiThemeName, Record<string, string>> = {
     stateStale: "#5a6678",
     stateWarn: "#ffc02e",
     stateAlarm: "#ff4d4d",
+    // Compliance-only in-spec accent (mirrors --state-ok in theme.css).
+    stateOk: "#35c46b",
     traceA: "#2f9bff",
     traceB: "#21d4a8",
     accent: "#1e6feb",

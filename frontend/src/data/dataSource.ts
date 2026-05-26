@@ -209,3 +209,150 @@ export function useEsdEventsCache(): EsdEventRow[] | null {
     () => null,
   );
 }
+
+// ---- Utilities (ESD-day, per-minute) cache --------------------------------
+
+/**
+ * One per-minute row of utilities_esd.json — the recorded ESD day for the
+ * utilities layer (1440 rows). `t` is pre-parsed epoch ms; the rest mirror
+ * the Athena columns. Feeds the Analytics display only; loaded lazily there,
+ * not in DataBoot, so the ~324 KB is paid only when Analytics is opened.
+ */
+export interface UtilitiesEsdRow {
+  /** Epoch ms parsed from `timestamp`. Added at load — not in Athena. */
+  t: number;
+  timestamp: string;
+  esd_phase: string;
+  esd_reason: string;
+  ft_flare_hp: number;
+  tt_hotoil_supply: number;
+  tt_hotoil_return: number;
+  qi_flare_smoke: number;
+}
+
+let utilitiesEsdCache: UtilitiesEsdRow[] | null = null;
+let utilitiesEsdPromise: Promise<UtilitiesEsdRow[]> | null = null;
+const utilitiesEsdListeners = new Set<() => void>();
+
+function notifyUtilitiesEsd(): void {
+  for (const fn of utilitiesEsdListeners) fn();
+}
+
+function subscribeUtilitiesEsd(fn: () => void): () => void {
+  utilitiesEsdListeners.add(fn);
+  return () => {
+    utilitiesEsdListeners.delete(fn);
+  };
+}
+
+function getUtilitiesEsdCache(): UtilitiesEsdRow[] | null {
+  return utilitiesEsdCache;
+}
+
+/**
+ * Loads utilities_esd.json once and caches it. Idempotent, promise-level
+ * dedupe — same contract as loadWells/loadEsdEvents. Unlike those, the
+ * single legitimate call site is AnalyticsDisplay's mount effect (lazy),
+ * since this dataset only feeds the Analytics display.
+ */
+export function loadUtilitiesEsd(): Promise<UtilitiesEsdRow[]> {
+  if (utilitiesEsdCache) return Promise.resolve(utilitiesEsdCache);
+  if (utilitiesEsdPromise) return utilitiesEsdPromise;
+  utilitiesEsdPromise = fetch(`${DATA_BASE}/utilities_esd.json`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`utilities_esd.json: HTTP ${r.status}`);
+      return r.json() as Promise<Omit<UtilitiesEsdRow, "t">[]>;
+    })
+    .then((rows) => {
+      const out: UtilitiesEsdRow[] = rows.map((r) => ({
+        ...r,
+        t: parseAthenaTs(r.timestamp),
+      }));
+      // Defensive sort by time: the chart's x scale and any bsearch assume
+      // ascending samples. The exporter already orders by timestamp.
+      out.sort((a, b) => a.t - b.t);
+      utilitiesEsdCache = out;
+      notifyUtilitiesEsd();
+      return out;
+    });
+  return utilitiesEsdPromise;
+}
+
+/** Subscribes to the utilities ESD-day cache (null→array, never mutates). */
+export function useUtilitiesEsdCache(): UtilitiesEsdRow[] | null {
+  return useSyncExternalStore(
+    subscribeUtilitiesEsd,
+    getUtilitiesEsdCache,
+    () => null,
+  );
+}
+
+// ---- Plant (ESD-day, per-minute) cache ------------------------------------
+
+/**
+ * One per-minute row of plant_esd.json — the recorded ESD day for the plant
+ * layer (1440 rows), carrying fiscal gas-quality analyzers. `t` is pre-parsed
+ * epoch ms. Feeds the Analytics display only; lazy-loaded there (~232 KB).
+ */
+export interface PlantEsdRow {
+  /** Epoch ms parsed from `timestamp`. Added at load — not in Athena. */
+  t: number;
+  timestamp: string;
+  plant_event: string;
+  esd_phase: string;
+  ai_wobbe: number;
+  ai_pcs: number;
+}
+
+let plantEsdCache: PlantEsdRow[] | null = null;
+let plantEsdPromise: Promise<PlantEsdRow[]> | null = null;
+const plantEsdListeners = new Set<() => void>();
+
+function notifyPlantEsd(): void {
+  for (const fn of plantEsdListeners) fn();
+}
+
+function subscribePlantEsd(fn: () => void): () => void {
+  plantEsdListeners.add(fn);
+  return () => {
+    plantEsdListeners.delete(fn);
+  };
+}
+
+function getPlantEsdCache(): PlantEsdRow[] | null {
+  return plantEsdCache;
+}
+
+/**
+ * Loads plant_esd.json once and caches it. Idempotent, promise-level dedupe.
+ * Single legitimate call site: AnalyticsDisplay's mount effect (lazy).
+ */
+export function loadPlantEsd(): Promise<PlantEsdRow[]> {
+  if (plantEsdCache) return Promise.resolve(plantEsdCache);
+  if (plantEsdPromise) return plantEsdPromise;
+  plantEsdPromise = fetch(`${DATA_BASE}/plant_esd.json`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`plant_esd.json: HTTP ${r.status}`);
+      return r.json() as Promise<Omit<PlantEsdRow, "t">[]>;
+    })
+    .then((rows) => {
+      const out: PlantEsdRow[] = rows.map((r) => ({
+        ...r,
+        t: parseAthenaTs(r.timestamp),
+      }));
+      out.sort((a, b) => a.t - b.t);
+      plantEsdCache = out;
+      notifyPlantEsd();
+      return out;
+    });
+  return plantEsdPromise;
+}
+
+/** Subscribes to the plant ESD-day cache (null→array, never mutates). */
+export function usePlantEsdCache(): PlantEsdRow[] | null {
+  return useSyncExternalStore(
+    subscribePlantEsd,
+    getPlantEsdCache,
+    () => null,
+  );
+}

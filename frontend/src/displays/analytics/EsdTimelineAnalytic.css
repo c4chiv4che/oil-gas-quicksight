@@ -1,0 +1,133 @@
+/* ============================================================
+   ESD Timeline analytic — SVG phase-flow of flare + hot oil.
+
+   All colors come from var(--hmi-*) / var(--state-*); SVG presentation
+   attributes accept CSS vars directly, so the theme toggle reskins this
+   for free (same golden rule as the rest of the HMI). State tints are
+   applied via [data-state] on cells, markers, bars and value labels.
+   ============================================================ */
+
+.esd-tl {
+  background: var(--hmi-surface-2);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+  padding: 12px 16px 10px;
+  box-sizing: border-box;
+}
+
+.esd-tl__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/* Per-phase sub-band cell tints — tenue, behind the traces. Normal stays
+   on the recessed surface so abnormal phases (warn/alarm) stand out. */
+.esd-tl__cell {
+  fill: var(--hmi-surface);
+  fill-opacity: 0.35;
+}
+.esd-tl__cell[data-state="normal"] {
+  fill: var(--hmi-surface);
+}
+.esd-tl__cell[data-state="warn"] {
+  fill: var(--state-warn);
+  fill-opacity: 0.12;
+}
+.esd-tl__cell[data-state="alarm"] {
+  fill: var(--state-alarm);
+  fill-opacity: 0.14;
+}
+.esd-tl__cell[data-state="stale"] {
+  fill: var(--state-stale);
+  fill-opacity: 0.12;
+}
+
+.esd-tl__sep {
+  stroke: var(--hmi-border);
+  stroke-width: 1;
+}
+
+.esd-tl__axis {
+  stroke: var(--hmi-border-2);
+  stroke-width: 1;
+}
+
+/* Left-gutter sub-band titles. */
+.esd-tl__band-title {
+  fill: var(--hmi-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.esd-tl__band-unit {
+  fill: var(--hmi-text-muted);
+  font-size: 9px;
+}
+
+/* Phase headers. */
+.esd-tl__phase {
+  fill: var(--hmi-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-anchor: middle;
+}
+.esd-tl__dur {
+  fill: var(--hmi-text-muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+/* Flare trace: neutral informational stroke; state lives on the markers. */
+.esd-tl__flare-line {
+  fill: none;
+  stroke: var(--hmi-trace-a);
+  stroke-width: 1.5;
+}
+
+.esd-tl__marker {
+  fill: var(--state-normal);
+  stroke: var(--hmi-surface-2);
+  stroke-width: 1;
+}
+.esd-tl__marker[data-state="warn"] {
+  fill: var(--state-warn);
+}
+.esd-tl__marker[data-state="alarm"] {
+  fill: var(--state-alarm);
+}
+
+/* Hot-oil min–max bar per phase. */
+.esd-tl__hot-bar {
+  fill: var(--state-normal);
+  fill-opacity: 0.85;
+}
+.esd-tl__hot-bar[data-state="warn"] {
+  fill: var(--state-warn);
+}
+.esd-tl__hot-bar[data-state="alarm"] {
+  fill: var(--state-alarm);
+}
+
+/* Value labels, tabular for alignment. */
+.esd-tl__val {
+  fill: var(--hmi-text);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+}
+.esd-tl__val[data-state="warn"] {
+  fill: var(--state-warn);
+}
+.esd-tl__val[data-state="alarm"] {
+  fill: var(--state-alarm);
+}
+
+.esd-tl__note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--hmi-text-muted);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}

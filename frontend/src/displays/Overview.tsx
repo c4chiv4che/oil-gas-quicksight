@@ -53,18 +53,28 @@ export function Overview() {
           <span className="overview-header__site">Vaca Muerta</span>
           <span className="overview-header__sep">·</span>
           <span className="overview-header__name">Well Overview</span>
-          {/* Drill-in to the pad collection. Sits at the right of the
-              header (not over a card) so it reads as a display-level
-              jump, not an action on any one well. Faithful hierarchy:
-              site overview → pad detail → well detail. */}
-          <button
-            type="button"
-            className="overview-header__nav-pad"
-            onClick={() => navigateTo("well-pad-detail")}
-            aria-label="Open Well Pad Detail"
-          >
-            Well Pad Detail →
-          </button>
+          {/* Display-level jumps, grouped at the right of the header (not
+              over a card) so they read as navigation, not actions on any one
+              well. Analytics is the native charts surface; Well Pad Detail
+              continues the hierarchy site overview → pad detail → well detail. */}
+          <div className="overview-header__nav">
+            <button
+              type="button"
+              className="overview-header__nav-pad"
+              onClick={() => navigateTo("analytics")}
+              aria-label="Open Analytics"
+            >
+              Analytics →
+            </button>
+            <button
+              type="button"
+              className="overview-header__nav-pad"
+              onClick={() => navigateTo("well-pad-detail")}
+              aria-label="Open Well Pad Detail"
+            >
+              Well Pad Detail →
+            </button>
+          </div>
         </div>
         <div className="overview-grid">
           {wells.map((w) => (

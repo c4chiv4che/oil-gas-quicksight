@@ -1,0 +1,169 @@
+/* ============================================================
+   Analytics display — native HMI charts over the recorded dataset.
+
+   Layout (fixed 1366px shell, scaled by useScaleToFit):
+     [ header: ← Overview / "Vaca Muerta · Analytics" ]
+     [ section: ESD Event Timeline   ]
+     [ section: HP Flare             ]
+     [ section: NAG-602 Compliance   ]
+
+   No hex colors — every value comes from var(--hmi-*) / var(--state-*) so
+   the theme toggle reskins the display for free, like the other displays.
+   ============================================================ */
+
+.analytics-shell {
+  width: 1366px;
+  margin: 0 auto;
+  padding: 12px 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 14px;
+  color: var(--hmi-text);
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/* ---- Header (mirrors overview-header / pad-header) ---- */
+
+.analytics-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--hmi-header);
+  border: 1px solid var(--hmi-border);
+  border-bottom: 2px solid var(--hmi-accent);
+  border-radius: 4px;
+}
+
+.analytics-header__nav-back {
+  all: unset;
+  align-self: center;
+  padding: 2px 8px;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--hmi-accent);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.analytics-header__nav-back:hover {
+  border-color: var(--hmi-accent);
+}
+.analytics-header__nav-back:focus-visible {
+  outline: 2px solid var(--hmi-accent);
+  outline-offset: 2px;
+}
+
+.analytics-header__titles {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.analytics-header__area {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+}
+.analytics-header__sep {
+  font-size: 18px;
+  color: var(--hmi-text-muted);
+}
+.analytics-header__name {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--hmi-text-muted);
+}
+.analytics-header__note {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text-muted);
+}
+
+/* ---- Section panel ---- */
+
+.analytics-section {
+  display: grid;
+  row-gap: 8px;
+  padding: 12px 14px;
+  background: var(--hmi-surface);
+  border: 1px solid var(--hmi-border);
+  border-radius: 4px;
+}
+
+.analytics-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.analytics-section__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+}
+.analytics-section__subtitle {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--hmi-text-muted);
+}
+.analytics-section__loading {
+  padding: 24px 0;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--hmi-text-muted);
+}
+
+/* ---- NAG-602 panels (Wobbe + PCS) ---- */
+
+.nag602 {
+  display: grid;
+  row-gap: 12px;
+}
+.nag602__panel {
+  display: grid;
+  row-gap: 6px;
+}
+
+/* Compliance status chip. data-spec drives the verdict color: in-spec uses
+   the compliance green (--state-ok), off-spec the alarm red. */
+.nag602__status {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.nag602__status-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+}
+.nag602__status-spec,
+.nag602__status-range {
+  font-size: 11px;
+  color: var(--hmi-text-muted);
+}
+.nag602__status-verdict {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 8px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+.nag602__status[data-spec="in"] .nag602__status-verdict {
+  color: var(--state-ok);
+}
+.nag602__status[data-spec="off"] .nag602__status-verdict {
+  color: var(--state-alarm);
+}

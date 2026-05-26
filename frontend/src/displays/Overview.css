@@ -53,12 +53,20 @@
   color: var(--hmi-text-muted);
 }
 
-/* Drill-in button — pushed to the far right of the header. Styled as a
-   subtle accent link (not a heavy button) so it reads as navigation,
-   consistent with the "← Overview" breadcrumb in the detail displays. */
+/* Display-jump buttons grouped at the far right of the header. The wrapper
+   owns the margin-left:auto push so multiple buttons stay grouped with an
+   even gap. */
+.overview-header__nav {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* Drill-in button — styled as a subtle accent link (not a heavy button) so it
+   reads as navigation, consistent with the "← Overview" breadcrumb in the
+   detail displays. */
 .overview-header__nav-pad {
   all: unset;
-  margin-left: auto;
   padding: 4px 10px;
   font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
   font-size: 12px;
