@@ -9,7 +9,6 @@ import pytest
 from src import quality
 from src.quality import GasComposition, composition_shift, teg_dehydrate, weighted_mix
 
-
 # Component PCS constants (same as in src/quality.py). Hand-anchored so the test
 # would catch an accidental edit to _COMP_PCS_KCAL.
 _PCS = {"c1": 9520, "c2": 16860, "c3": 24180, "c4": 31370, "c5_plus": 38690}

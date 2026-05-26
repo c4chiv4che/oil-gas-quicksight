@@ -10,8 +10,7 @@ import numpy as np
 
 from . import physics, quality
 from .config import PAD_ID, SIGNAL_RANGES
-from .events import EventBus, PlantEvent, ESDPhase
-from .quality import GasComposition
+from .events import ESDPhase, EventBus, PlantEvent
 from .wells import InletStream
 
 

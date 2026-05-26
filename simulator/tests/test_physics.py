@@ -9,7 +9,6 @@ import pytest
 
 from src import physics
 
-
 # ── arps_hyperbolic ───────────────────────────────────────────────────────────
 
 class TestArpsHyperbolic:

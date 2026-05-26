@@ -8,18 +8,20 @@ Usage:
 
 from __future__ import annotations
 
-import sys
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from rich.console import Console
 from rich.progress import (
-    BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn,
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
 )
-
 from rich.table import Table
 
 from .cli import RunConfig, app
@@ -81,7 +83,7 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     timestamps = pd.date_range(cfg.start, cfg.end, freq=f"{cfg.freq_minutes}min", tz="UTC", inclusive="left")
 
     # ── Banner ───────────────────────────────────────────────────────
-    console.print(f"\n[bold cyan]Vaca Muerta Simulator v2[/bold cyan]")
+    console.print("\n[bold cyan]Vaca Muerta Simulator v2[/bold cyan]")
     console.print(f"  Pad:     {PAD_ID}  ({len(pad.wells)} wells)")
     console.print(f"  Period:  {cfg.start.isoformat()} → {cfg.end.isoformat()}  ({cfg.freq_minutes}-min ticks)")
     console.print(f"  Layers:  {', '.join(cfg.layers)}")
@@ -92,7 +94,7 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     if cfg.inject_gas_lock_well:
         console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
     if cfg.stream:
-        streamed = ", ".join(_stream_name_for(l) for l in cfg.layers)
+        streamed = ", ".join(_stream_name_for(layer) for layer in cfg.layers)
         console.print(f"  [cyan]Streaming[/cyan]: → {streamed}  (profile={cfg.profile}, local={'off' if cfg.no_local else 'on'})")
     console.print()
 

@@ -10,7 +10,7 @@ import numpy as np
 
 from . import physics
 from .config import PAD_ID, SIGNAL_RANGES
-from .events import EventBus, ESDPhase
+from .events import ESDPhase, EventBus
 
 
 def _noisy(value: float, tag: str, rng: np.random.Generator,

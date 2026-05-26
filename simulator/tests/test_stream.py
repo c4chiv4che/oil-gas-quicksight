@@ -14,12 +14,11 @@ import numpy as np
 import pytest
 
 from src.stream import (
-    KinesisProducer,
     MAX_RECORDS_PER_CALL,
+    KinesisProducer,
     SendStats,
     serialize_record,
 )
-
 
 # ── Fake Kinesis client ───────────────────────────────────────────────────────
 
@@ -367,6 +366,7 @@ class TestSimulatorMultiLayerDispatch:
         import io
         from datetime import datetime, timezone
         from pathlib import Path
+
         from rich.console import Console
 
         from src import output as output_module
@@ -441,6 +441,7 @@ class TestSimulatorMultiLayerDispatch:
         import io
         from datetime import datetime, timezone
         from pathlib import Path
+
         from rich.console import Console
 
         from src import output as output_module

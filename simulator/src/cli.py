@@ -10,8 +10,7 @@ from typing import Optional
 import typer
 
 from .config import DEFAULTS
-from .events import ESDReason, WellEvent
-
+from .events import ESDReason
 
 app = typer.Typer(add_completion=False, help="Vaca Muerta shale ops simulator v2 (wells + plant + utilities).")
 

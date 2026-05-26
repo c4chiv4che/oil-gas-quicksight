@@ -12,7 +12,6 @@ from src.cli import RunConfig
 from src.events import ESDReason
 from src.quality import GasComposition
 
-
 SEED = 42
 
 

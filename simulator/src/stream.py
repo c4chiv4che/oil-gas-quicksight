@@ -15,13 +15,12 @@ from __future__ import annotations
 import json
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Iterable, Optional
 
 import boto3
 import numpy as np
-
 
 # Kinesis PutRecords limits (AWS service quotas)
 MAX_RECORDS_PER_CALL = 500

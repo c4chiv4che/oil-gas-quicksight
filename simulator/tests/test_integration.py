@@ -16,7 +16,6 @@ from src.cli import RunConfig
 from src.events import ESDPhase, ESDReason
 from src.simulator import run
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
@@ -16,7 +16,6 @@ from src.events import (
     WellEvent,
     WellStateMachine,
 )
-
 
 # ── Enum regression guards ────────────────────────────────────────────────────
 # These pin the string values so a rename or accidental edit breaks the suite

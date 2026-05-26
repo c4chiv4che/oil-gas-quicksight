@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from typing import Iterable
-
 
 # Component constants for PCS / Wobbe / density calculations.
 # pcs_kcal: gross heating value per m³ at 15°C, 101.325 kPa.
