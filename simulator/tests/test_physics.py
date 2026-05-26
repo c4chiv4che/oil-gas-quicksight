@@ -11,6 +11,7 @@ from src import physics
 
 # ── arps_hyperbolic ───────────────────────────────────────────────────────────
 
+
 class TestArpsHyperbolic:
     def test_t_zero_returns_qi(self) -> None:
         assert physics.arps_hyperbolic(qi=100.0, b=1.5, Di=0.01, t_days=0.0) == 100.0
@@ -28,9 +29,9 @@ class TestArpsHyperbolic:
         "qi,b,Di,t,expected",
         [
             # q(t) = qi / (1 + b*Di*t)^(1/b)
-            (100.0, 1.5, 0.01, 30.0,  100.0 / (1.0 + 1.5 * 0.01 * 30.0) ** (1.0 / 1.5)),
+            (100.0, 1.5, 0.01, 30.0, 100.0 / (1.0 + 1.5 * 0.01 * 30.0) ** (1.0 / 1.5)),
             (120.0, 1.3, 0.008, 90.0, 120.0 / (1.0 + 1.3 * 0.008 * 90.0) ** (1.0 / 1.3)),
-            (80.0,  1.8, 0.015, 180.0, 80.0 / (1.0 + 1.8 * 0.015 * 180.0) ** (1.0 / 1.8)),
+            (80.0, 1.8, 0.015, 180.0, 80.0 / (1.0 + 1.8 * 0.015 * 180.0) ** (1.0 / 1.8)),
         ],
     )
     def test_known_values(self, qi: float, b: float, Di: float, t: float, expected: float) -> None:
@@ -44,6 +45,7 @@ class TestArpsHyperbolic:
 
 
 # ── gor_creep ─────────────────────────────────────────────────────────────────
+
 
 class TestGorCreep:
     def test_t_zero_returns_base(self) -> None:
@@ -61,6 +63,7 @@ class TestGorCreep:
 
 
 # ── watercut_creep ────────────────────────────────────────────────────────────
+
 
 class TestWatercutCreep:
     def test_normal_mode_starts_at_base(self) -> None:
@@ -92,6 +95,7 @@ class TestWatercutCreep:
 
 # ── whp_from_oil_choke ────────────────────────────────────────────────────────
 
+
 class TestWhpFromOilChoke:
     def test_choke_zero_returns_base(self) -> None:
         assert physics.whp_from_oil_choke(oil_rate=80.0, choke_pct=0.0, base=30.0) == 30.0
@@ -112,6 +116,7 @@ class TestWhpFromOilChoke:
 
 # ── downhole_from_whp ─────────────────────────────────────────────────────────
 
+
 class TestDownholeFromWhp:
     def test_increases_with_each_input(self) -> None:
         base = physics.downhole_from_whp(whp=50.0, oil=80.0, gas=30.0)
@@ -121,6 +126,7 @@ class TestDownholeFromWhp:
 
 
 # ── hydrate_temp / hydrate_risk ───────────────────────────────────────────────
+
 
 class TestHydrate:
     @pytest.mark.parametrize("P", [10.0, 30.0, 60.0, 100.0, 150.0])
@@ -139,9 +145,9 @@ class TestHydrate:
         "T_C,P_bar,h2o",
         [
             (50.0, 30.0, 100.0),  # well above hydrate curve
-            (0.0,  80.0, 250.0),  # likely in risk window
+            (0.0, 80.0, 250.0),  # likely in risk window
             (-20.0, 100.0, 300.0),  # deep in hydrate region
-            (25.0, 50.0, 0.0),    # no water → no risk
+            (25.0, 50.0, 0.0),  # no water → no risk
         ],
     )
     def test_hydrate_risk_in_0_1(self, T_C: float, P_bar: float, h2o: float) -> None:
@@ -159,6 +165,7 @@ class TestHydrate:
 
 # ── corrosion_risk ────────────────────────────────────────────────────────────
 
+
 class TestCorrosionRisk:
     @pytest.mark.parametrize(
         "h2s,h2o,T",
@@ -166,7 +173,7 @@ class TestCorrosionRisk:
             (0.0, 100.0, 50.0),
             (5.0, 300.0, 80.0),
             (3.0, 250.0, 30.0),
-            (1.0,  10.0, 25.0),
+            (1.0, 10.0, 25.0),
         ],
     )
     def test_in_0_1(self, h2s: float, h2o: float, T: float) -> None:
@@ -187,9 +194,12 @@ class TestCorrosionRisk:
 
 # ── centrifugal_ratio ─────────────────────────────────────────────────────────
 
+
 class TestCentrifugalRatio:
     def test_at_base_rpm_gives_design_ratio(self) -> None:
-        assert physics.centrifugal_ratio(speed_rpm=10_000.0, base_rpm=10_000.0) == pytest.approx(1.083)
+        assert physics.centrifugal_ratio(speed_rpm=10_000.0, base_rpm=10_000.0) == pytest.approx(
+            1.083
+        )
 
     def test_increases_with_speed(self) -> None:
         r_lo = physics.centrifugal_ratio(8_000.0)
@@ -204,6 +214,7 @@ class TestCentrifugalRatio:
 
 
 # ── antisurge_position ────────────────────────────────────────────────────────
+
 
 class TestAntisurge:
     def test_above_margin_closed(self) -> None:
@@ -224,14 +235,15 @@ class TestAntisurge:
 
 # ── clip ──────────────────────────────────────────────────────────────────────
 
+
 class TestClip:
     @pytest.mark.parametrize(
         "v,lo,hi,expected",
         [
-            (5.0,  0.0, 10.0, 5.0),
+            (5.0, 0.0, 10.0, 5.0),
             (-5.0, 0.0, 10.0, 0.0),
             (15.0, 0.0, 10.0, 10.0),
-            (0.0,  0.0, 10.0, 0.0),
+            (0.0, 0.0, 10.0, 0.0),
             (10.0, 0.0, 10.0, 10.0),
         ],
     )
@@ -240,6 +252,7 @@ class TestClip:
 
 
 # ── add_noise ─────────────────────────────────────────────────────────────────
+
 
 class TestAddNoise:
     def test_zero_noise_pct_returns_value_within_floor(self) -> None:

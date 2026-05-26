@@ -14,8 +14,13 @@ from .events import ESDPhase, EventBus, PlantEvent
 from .wells import InletStream
 
 
-def _noisy(value: float, tag: str, rng: np.random.Generator,
-           lo: Optional[float] = None, hi: Optional[float] = None) -> float:
+def _noisy(
+    value: float,
+    tag: str,
+    rng: np.random.Generator,
+    lo: Optional[float] = None,
+    hi: Optional[float] = None,
+) -> float:
     cfg = SIGNAL_RANGES[tag]
     noisy = physics.add_noise(value, cfg["noise"], rng)
     lo = cfg["min"] if lo is None else lo
@@ -68,7 +73,7 @@ class Plant:
         if esd_active:
             flow_factor = 0.0
         elif esd_phase == ESDPhase.RECOVERY:
-            flow_factor = recovery_frac        # 0 → 1 during recovery
+            flow_factor = recovery_frac  # 0 → 1 during recovery
         else:
             flow_factor = 1.0
 
@@ -81,7 +86,8 @@ class Plant:
         # slug catcher level: random walk around setpoint, gas surges raise it
         self.lt_slug = physics.clip(
             self.lt_slug + self.rng.normal(0, 0.8) + (inlet_liq - 80.0) * 0.002,
-            10.0, 95.0,
+            10.0,
+            95.0,
         )
 
         # ── §3.2 3-PHASE SEPARATOR ──────────────────────────────────
@@ -89,21 +95,27 @@ class Plant:
         tt_sep = 40.0 + tt_inlet * 0.1
         # oil level rises with liquid throughput, dump valve corrects at 60%
         self.lt_sep_oil = physics.clip(
-            self.lt_sep_oil + self.rng.normal(0, 0.5)
+            self.lt_sep_oil
+            + self.rng.normal(0, 0.5)
             + (inlet_liq / 100.0 - 0.5) * 0.3
             - (1.0 if self.lt_sep_oil > 55 else 0.0),
-            5.0, 90.0,
+            5.0,
+            90.0,
         )
         self.lt_sep_water = physics.clip(
-            self.lt_sep_water + self.rng.normal(0, 0.5)
+            self.lt_sep_water
+            + self.rng.normal(0, 0.5)
             + (inlet.total_water_m3d * flow_factor / 30.0 - 0.5) * 0.3
             - (1.0 if self.lt_sep_water > 50 else 0.0),
-            5.0, 90.0,
+            5.0,
+            90.0,
         )
         pdt_sep = 100.0 + inlet_gas * 0.2
 
         # ── §3.3 TEG DEHYDRATION ────────────────────────────────────
-        ft_teg_circ = 1200.0 + self.rng.normal(0, 30) - (0 if esd_phase == ESDPhase.INACTIVE else 400.0)
+        ft_teg_circ = (
+            1200.0 + self.rng.normal(0, 30) - (0 if esd_phase == ESDPhase.INACTIVE else 400.0)
+        )
         tt_contactor = SIGNAL_RANGES["TT_CONTACTOR"]["sp"] + self.rng.normal(0, 0.5)
         pt_contactor = pt_sep * 6.0
         tt_reboiler = SIGNAL_RANGES["TT_REBOILER"]["sp"] + self.rng.normal(0, 0.8)
@@ -116,7 +128,9 @@ class Plant:
         )
         dew_h2o = -8.0 - (self.teg_purity - 99.0) * 8.0 - (1200.0 - ft_teg_circ) / 200.0
         self.lt_teg_surge = physics.clip(
-            self.lt_teg_surge + self.rng.normal(0, 0.4), 25.0, 85.0,
+            self.lt_teg_surge + self.rng.normal(0, 0.4),
+            25.0,
+            85.0,
         )
 
         # ── §3.4 LTS / DEW POINT ────────────────────────────────────
@@ -125,10 +139,12 @@ class Plant:
         pt_lts = 50.0 + (pt_sep - 10.0) * 2.0
         tt_lts = tt_chiller + 1.0
         self.lt_lts = physics.clip(
-            self.lt_lts + self.rng.normal(0, 0.5)
+            self.lt_lts
+            + self.rng.normal(0, 0.5)
             + (inlet_liq / 200.0 - 0.3) * 0.2
             - (1.0 if self.lt_lts > 55 else 0.0),
-            5.0, 90.0,
+            5.0,
+            90.0,
         )
         dew_hc = quality.lts_reduce_hc_dewpoint(15.0, dT=25.0 + self.rng.normal(0, 1.5))
         dew_hc = physics.clip(dew_hc, -15.0, -2.0)
@@ -148,20 +164,22 @@ class Plant:
         tt_prop_disch = 90.0 + self.rng.normal(0, 3.0)
         vt_prop_comp = 1.2 + self.rng.normal(0, 0.3)
         self.lt_prop_acum = physics.clip(
-            self.lt_prop_acum + self.rng.normal(0, 0.3), 30.0, 85.0,
+            self.lt_prop_acum + self.rng.normal(0, 0.3),
+            30.0,
+            85.0,
         )
 
         # ── §3.6 STABILIZER ────────────────────────────────────────
         pt_stab = 7.5 + self.rng.normal(0, 0.2)
         tt_stab_top = 65.0 + self.rng.normal(0, 2.0)
         tt_stab_bot = 200.0 + self.rng.normal(0, 4.0)
-        ft_cond_out = inlet.total_oil_m3d * flow_factor * 0.85   # losses in stabilization
-        ai_rvp = 10.0 + (220.0 - tt_stab_bot) * 0.05            # higher bottom T → lower RVP
+        ft_cond_out = inlet.total_oil_m3d * flow_factor * 0.85  # losses in stabilization
+        ai_rvp = 10.0 + (220.0 - tt_stab_bot) * 0.05  # higher bottom T → lower RVP
 
         # ── §3.7 CENTRIFUGAL COMPRESSION ───────────────────────────
         if esd_active:
             self.comp_speed = 0.0
-            zt_antisurge = 100.0       # fully open during ESD
+            zt_antisurge = 100.0  # fully open during ESD
             ft_recycle = 0.0
             pt_comp_suct = 0.0
             pt_comp_disch = 0.0
@@ -187,12 +205,13 @@ class Plant:
         #   C5+ ≈ 95% recovered, C4 ≈ 60%, C3 ≈ 30%, C2 ≈ 5%, C1 stays
         fiscal_comp = quality.GasComposition(
             c1=inlet.composition.c1,
-            c2=inlet.composition.c2 * 0.75,    # ~25% C2 lost to chilling + leaks
+            c2=inlet.composition.c2 * 0.75,  # ~25% C2 lost to chilling + leaks
             c3=inlet.composition.c3 * 0.45,
             c4=inlet.composition.c4 * 0.20,
             c5_plus=inlet.composition.c5_plus * 0.02,
-            co2=inlet.composition.co2, n2=inlet.composition.n2,
-            h2s=inlet.composition.h2s * 0.9,   # minimal change without amine
+            co2=inlet.composition.co2,
+            n2=inlet.composition.n2,
+            h2s=inlet.composition.h2s * 0.9,  # minimal change without amine
             h2o=outlet_h2o,
         ).normalize()
 
@@ -211,68 +230,68 @@ class Plant:
             "esd_phase": esd_phase.value,
             "esd_reason": bus.esd.reason.value if (esd_active and bus.esd.reason) else "",
             # Inlet
-            "PT_INLET":   _noisy(pt_inlet, "PT_INLET", self.rng),
-            "TT_INLET":   _noisy(tt_inlet, "TT_INLET", self.rng),
-            "LT_SLUG":    round(self.lt_slug, 2),
+            "PT_INLET": _noisy(pt_inlet, "PT_INLET", self.rng),
+            "TT_INLET": _noisy(tt_inlet, "TT_INLET", self.rng),
+            "LT_SLUG": round(self.lt_slug, 2),
             "FT_INLET_GAS": _noisy(inlet_gas, "FT_INLET_GAS", self.rng, lo=0.0),
             "FT_INLET_LIQ": _noisy(inlet_liq, "FT_INLET_LIQ", self.rng, lo=0.0),
             # Separator
-            "PT_SEP":     _noisy(pt_sep, "PT_SEP", self.rng),
-            "TT_SEP":     _noisy(tt_sep, "TT_SEP", self.rng),
+            "PT_SEP": _noisy(pt_sep, "PT_SEP", self.rng),
+            "TT_SEP": _noisy(tt_sep, "TT_SEP", self.rng),
             "LT_SEP_OIL": round(self.lt_sep_oil, 2),
             "LT_SEP_WATER": round(self.lt_sep_water, 2),
-            "PDT_SEP":    _noisy(pdt_sep, "PDT_SEP", self.rng),
+            "PDT_SEP": _noisy(pdt_sep, "PDT_SEP", self.rng),
             # TEG
-            "TT_CONTACTOR":   _noisy(tt_contactor, "TT_CONTACTOR", self.rng),
-            "PT_CONTACTOR":   _noisy(pt_contactor, "PT_CONTACTOR", self.rng),
-            "FT_TEG_CIRC":    _noisy(ft_teg_circ, "FT_TEG_CIRC", self.rng, lo=0.0),
-            "TT_REBOILER":    _noisy(tt_reboiler, "TT_REBOILER", self.rng),
-            "AI_TEG_PURITY":  round(self.teg_purity, 3),
-            "AI_DEWPOINT_H2O":_noisy(dew_h2o, "AI_DEWPOINT_H2O", self.rng),
-            "LT_TEG_SURGE":   round(self.lt_teg_surge, 2),
+            "TT_CONTACTOR": _noisy(tt_contactor, "TT_CONTACTOR", self.rng),
+            "PT_CONTACTOR": _noisy(pt_contactor, "PT_CONTACTOR", self.rng),
+            "FT_TEG_CIRC": _noisy(ft_teg_circ, "FT_TEG_CIRC", self.rng, lo=0.0),
+            "TT_REBOILER": _noisy(tt_reboiler, "TT_REBOILER", self.rng),
+            "AI_TEG_PURITY": round(self.teg_purity, 3),
+            "AI_DEWPOINT_H2O": _noisy(dew_h2o, "AI_DEWPOINT_H2O", self.rng),
+            "LT_TEG_SURGE": round(self.lt_teg_surge, 2),
             # LTS
-            "TT_GAS_GAS":  _noisy(tt_gas_gas, "TT_GAS_GAS", self.rng),
-            "TT_CHILLER":  _noisy(tt_chiller, "TT_CHILLER", self.rng),
-            "PT_LTS":      _noisy(pt_lts, "PT_LTS", self.rng),
-            "TT_LTS":      _noisy(tt_lts, "TT_LTS", self.rng),
-            "LT_LTS":      round(self.lt_lts, 2),
+            "TT_GAS_GAS": _noisy(tt_gas_gas, "TT_GAS_GAS", self.rng),
+            "TT_CHILLER": _noisy(tt_chiller, "TT_CHILLER", self.rng),
+            "PT_LTS": _noisy(pt_lts, "PT_LTS", self.rng),
+            "TT_LTS": _noisy(tt_lts, "TT_LTS", self.rng),
+            "LT_LTS": round(self.lt_lts, 2),
             "AI_DEWPOINT_HC": round(dew_hc, 2),
             # Propane
-            "PT_PROP_SUCT":  _noisy(pt_prop_suct, "PT_PROP_SUCT", self.rng, lo=0.0),
+            "PT_PROP_SUCT": _noisy(pt_prop_suct, "PT_PROP_SUCT", self.rng, lo=0.0),
             "PT_PROP_DISCH": _noisy(pt_prop_disch, "PT_PROP_DISCH", self.rng, lo=0.0),
-            "TT_PROP_SUCT":  _noisy(tt_prop_suct, "TT_PROP_SUCT", self.rng),
+            "TT_PROP_SUCT": _noisy(tt_prop_suct, "TT_PROP_SUCT", self.rng),
             "TT_PROP_DISCH": _noisy(tt_prop_disch, "TT_PROP_DISCH", self.rng, lo=20.0),
-            "SI_PROP_COMP":  _noisy(si_prop_comp, "SI_PROP_COMP", self.rng, lo=0.0),
-            "IT_PROP_COMP":  _noisy(it_prop_comp, "IT_PROP_COMP", self.rng, lo=0.0),
-            "VT_PROP_COMP":  _noisy(vt_prop_comp, "VT_PROP_COMP", self.rng, lo=0.0),
-            "LT_PROP_ACUM":  round(self.lt_prop_acum, 2),
+            "SI_PROP_COMP": _noisy(si_prop_comp, "SI_PROP_COMP", self.rng, lo=0.0),
+            "IT_PROP_COMP": _noisy(it_prop_comp, "IT_PROP_COMP", self.rng, lo=0.0),
+            "VT_PROP_COMP": _noisy(vt_prop_comp, "VT_PROP_COMP", self.rng, lo=0.0),
+            "LT_PROP_ACUM": round(self.lt_prop_acum, 2),
             # Stabilizer
-            "PT_STAB":     _noisy(pt_stab, "PT_STAB", self.rng),
+            "PT_STAB": _noisy(pt_stab, "PT_STAB", self.rng),
             "TT_STAB_TOP": _noisy(tt_stab_top, "TT_STAB_TOP", self.rng),
             "TT_STAB_BOT": _noisy(tt_stab_bot, "TT_STAB_BOT", self.rng),
             "FT_COND_OUT": _noisy(ft_cond_out, "FT_COND_OUT", self.rng, lo=0.0),
-            "AI_RVP":      _noisy(ai_rvp, "AI_RVP", self.rng),
+            "AI_RVP": _noisy(ai_rvp, "AI_RVP", self.rng),
             # Compression
-            "PT_COMP_SUCT":  _noisy(pt_comp_suct, "PT_COMP_SUCT", self.rng, lo=0.0),
+            "PT_COMP_SUCT": _noisy(pt_comp_suct, "PT_COMP_SUCT", self.rng, lo=0.0),
             "PT_COMP_DISCH": _noisy(pt_comp_disch, "PT_COMP_DISCH", self.rng, lo=0.0),
-            "TT_COMP_SUCT":  _noisy(tt_comp_suct, "TT_COMP_SUCT", self.rng, lo=0.0),
+            "TT_COMP_SUCT": _noisy(tt_comp_suct, "TT_COMP_SUCT", self.rng, lo=0.0),
             "TT_COMP_DISCH": _noisy(tt_comp_disch, "TT_COMP_DISCH", self.rng, lo=20.0),
-            "SI_COMP":       round(self.comp_speed, 1),
-            "VT_COMP":       _noisy(vt_comp, "VT_COMP", self.rng, lo=0.0),
-            "ZT_ANTISURGE":  round(physics.clip(zt_antisurge, 0.0, 100.0), 1),
-            "FT_RECYCLE":    _noisy(ft_recycle, "FT_RECYCLE", self.rng, lo=0.0),
+            "SI_COMP": round(self.comp_speed, 1),
+            "VT_COMP": _noisy(vt_comp, "VT_COMP", self.rng, lo=0.0),
+            "ZT_ANTISURGE": round(physics.clip(zt_antisurge, 0.0, 100.0), 1),
+            "FT_RECYCLE": _noisy(ft_recycle, "FT_RECYCLE", self.rng, lo=0.0),
             # Fiscal — NAG-602
-            "FQI_GAS_FISCAL":   round(max(0.0, inlet_gas * flow_factor), 3),
-            "FQI_COND_FISCAL":  round(max(0.0, ft_cond_out), 3),
+            "FQI_GAS_FISCAL": round(max(0.0, inlet_gas * flow_factor), 3),
+            "FQI_COND_FISCAL": round(max(0.0, ft_cond_out), 3),
             # Spec limits 8850-10200 / 11300-12470 are NAG-602 compliance bounds, not physical
             # bounds — let actual signal exceed them so the dashboard can highlight off-spec moments.
-            "AI_PCS":           _noisy(pcs, "AI_PCS", self.rng, lo=8000, hi=11000),
-            "AI_WOBBE":         _noisy(wobbe, "AI_WOBBE", self.rng, lo=10500, hi=13500),
-            "AI_DENSITY":       round(density, 4),
+            "AI_PCS": _noisy(pcs, "AI_PCS", self.rng, lo=8000, hi=11000),
+            "AI_WOBBE": _noisy(wobbe, "AI_WOBBE", self.rng, lo=10500, hi=13500),
+            "AI_DENSITY": round(density, 4),
             "AI_DEW_HC_FISCAL": round(physics.clip(dew_hc, -10.0, -4.0), 2),
-            "AI_H2O_FISCAL":    _noisy(outlet_h2o, "AI_H2O_FISCAL", self.rng, lo=0.0),
-            "AI_H2S_FISCAL":    round(fiscal_comp.h2s, 3),
-            "AI_S_TOTAL":       round(s_total, 3),
-            "AI_CO2_FISCAL":    round(fiscal_comp.co2, 3),
-            "AI_O2_FISCAL":     round(max(0.0, self.rng.normal(0.05, 0.02)), 4),
+            "AI_H2O_FISCAL": _noisy(outlet_h2o, "AI_H2O_FISCAL", self.rng, lo=0.0),
+            "AI_H2S_FISCAL": round(fiscal_comp.h2s, 3),
+            "AI_S_TOTAL": round(s_total, 3),
+            "AI_CO2_FISCAL": round(fiscal_comp.co2, 3),
+            "AI_O2_FISCAL": round(max(0.0, self.rng.normal(0.05, 0.02)), 4),
         }

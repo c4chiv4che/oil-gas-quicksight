@@ -12,8 +12,15 @@ from src.quality import GasComposition, composition_shift, teg_dehydrate, weight
 # Component PCS constants (same as in src/quality.py). Hand-anchored so the test
 # would catch an accidental edit to _COMP_PCS_KCAL.
 _PCS = {"c1": 9520, "c2": 16860, "c3": 24180, "c4": 31370, "c5_plus": 38690}
-_MW = {"c1": 16.04, "c2": 30.07, "c3": 44.10, "c4": 58.12, "c5_plus": 72.15,
-       "co2": 44.01, "n2": 28.01}
+_MW = {
+    "c1": 16.04,
+    "c2": 30.07,
+    "c3": 44.10,
+    "c4": 58.12,
+    "c5_plus": 72.15,
+    "co2": 44.01,
+    "n2": 28.01,
+}
 _AIR_MW = 28.96
 
 
@@ -27,6 +34,7 @@ def _hand_mw(c: GasComposition) -> float:
 
 # ── GasComposition.normalize ──────────────────────────────────────────────────
 
+
 class TestNormalize:
     def test_already_normal(self, vm_comp: GasComposition) -> None:
         # vm_comp fixture sums to exactly 100
@@ -36,8 +44,9 @@ class TestNormalize:
 
     def test_rescales_off_100(self) -> None:
         # double everything, normalize should bring it back to 100
-        c = GasComposition(c1=180, c2=12, c3=3.0, c4=0.6, c5_plus=0.1,
-                           co2=2.0, n2=2.3, h2s=4.0, h2o=500.0)
+        c = GasComposition(
+            c1=180, c2=12, c3=3.0, c4=0.6, c5_plus=0.1, co2=2.0, n2=2.3, h2s=4.0, h2o=500.0
+        )
         n = c.normalize()
         total = n.c1 + n.c2 + n.c3 + n.c4 + n.c5_plus + n.co2 + n.n2
         assert total == pytest.approx(100.0, abs=1e-9)
@@ -58,6 +67,7 @@ class TestNormalize:
 
 
 # ── PCS / density / Wobbe ─────────────────────────────────────────────────────
+
 
 class TestHeatingValue:
     def test_pcs_matches_hand_computed(self, vm_comp: GasComposition) -> None:
@@ -102,6 +112,7 @@ class TestHeatingValue:
 
 # ── composition_shift ─────────────────────────────────────────────────────────
 
+
 class TestCompositionShift:
     def test_at_baseline_gor_no_drift(self, wellhead_comp: GasComposition) -> None:
         # gor <= 300 → drift=0 → composition unchanged (modulo a normalize() pass)
@@ -115,12 +126,22 @@ class TestCompositionShift:
         assert shifted.c1 < base.c1
         # at least one of the heavies should rise (they all do per the formula,
         # but ranking-only is safer against a tweak)
-        assert shifted.c2 + shifted.c3 + shifted.c4 + shifted.c5_plus > \
-               base.c2 + base.c3 + base.c4 + base.c5_plus
+        assert (
+            shifted.c2 + shifted.c3 + shifted.c4 + shifted.c5_plus
+            > base.c2 + base.c3 + base.c4 + base.c5_plus
+        )
 
     def test_output_sums_to_100(self, wellhead_comp: GasComposition) -> None:
         shifted = composition_shift(wellhead_comp, gor=800.0, t_days=10.0)
-        total = shifted.c1 + shifted.c2 + shifted.c3 + shifted.c4 + shifted.c5_plus + shifted.co2 + shifted.n2
+        total = (
+            shifted.c1
+            + shifted.c2
+            + shifted.c3
+            + shifted.c4
+            + shifted.c5_plus
+            + shifted.co2
+            + shifted.n2
+        )
         assert total == pytest.approx(100.0, abs=1e-9)
 
     def test_c1_floor_holds_at_extreme_gor(self, wellhead_comp: GasComposition) -> None:
@@ -133,12 +154,15 @@ class TestCompositionShift:
 
 # ── weighted_mix ──────────────────────────────────────────────────────────────
 
+
 class TestWeightedMix:
     def test_equal_weights_arithmetic_mean(self) -> None:
-        a = GasComposition(c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05,
-                           co2=1.0, n2=1.15, h2s=1.0, h2o=100.0)
-        b = GasComposition(c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15,
-                           co2=2.0, n2=3.65, h2s=3.0, h2o=200.0)
+        a = GasComposition(
+            c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05, co2=1.0, n2=1.15, h2s=1.0, h2o=100.0
+        )
+        b = GasComposition(
+            c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15, co2=2.0, n2=3.65, h2s=3.0, h2o=200.0
+        )
         mix = weighted_mix([(a, 1.0), (b, 1.0)])
         # both sum to 100 → mean still sums to 100 (and normalize is a no-op)
         assert mix.c1 == pytest.approx((a.c1 + b.c1) / 2.0, rel=1e-9)
@@ -146,36 +170,43 @@ class TestWeightedMix:
         assert mix.h2o == pytest.approx((a.h2o + b.h2o) / 2.0, rel=1e-9)
 
     def test_one_zero_weight_picks_other(self) -> None:
-        a = GasComposition(c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05,
-                           co2=1.0, n2=1.15, h2s=1.0, h2o=100.0)
-        b = GasComposition(c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15,
-                           co2=2.0, n2=3.65, h2s=3.0, h2o=200.0)
+        a = GasComposition(
+            c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05, co2=1.0, n2=1.15, h2s=1.0, h2o=100.0
+        )
+        b = GasComposition(
+            c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15, co2=2.0, n2=3.65, h2s=3.0, h2o=200.0
+        )
         mix = weighted_mix([(a, 1.0), (b, 0.0)])
         assert mix.c1 == pytest.approx(a.c1, rel=1e-9)
         assert mix.h2s == pytest.approx(a.h2s, rel=1e-9)
 
     def test_all_zero_weight_falls_back_to_first(self) -> None:
-        a = GasComposition(c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05,
-                           co2=1.0, n2=1.15, h2s=1.0, h2o=100.0)
+        a = GasComposition(
+            c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05, co2=1.0, n2=1.15, h2s=1.0, h2o=100.0
+        )
         mix = weighted_mix([(a, 0.0)])
         assert mix.c1 == a.c1
 
     def test_flow_weighted(self) -> None:
         # 90% weight on b → mix should be closer to b than a
-        a = GasComposition(c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05,
-                           co2=1.0, n2=1.15, h2s=1.0, h2o=100.0)
-        b = GasComposition(c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15,
-                           co2=2.0, n2=3.65, h2s=3.0, h2o=200.0)
+        a = GasComposition(
+            c1=90, c2=6, c3=1.5, c4=0.3, c5_plus=0.05, co2=1.0, n2=1.15, h2s=1.0, h2o=100.0
+        )
+        b = GasComposition(
+            c1=80, c2=10, c3=3.5, c4=0.7, c5_plus=0.15, co2=2.0, n2=3.65, h2s=3.0, h2o=200.0
+        )
         mix = weighted_mix([(a, 1.0), (b, 9.0)])
         assert abs(mix.c1 - b.c1) < abs(mix.c1 - a.c1)
 
 
 # ── teg_dehydrate ─────────────────────────────────────────────────────────────
 
+
 class TestTegDehydrate:
     def test_outlet_below_inlet(self) -> None:
-        out = teg_dehydrate(inlet_h2o_mg_m3=250.0, circ_lh=1200.0,
-                            T_contactor_C=40.0, purity_pct=99.2)
+        out = teg_dehydrate(
+            inlet_h2o_mg_m3=250.0, circ_lh=1200.0, T_contactor_C=40.0, purity_pct=99.2
+        )
         assert out < 250.0
 
     @pytest.mark.parametrize("circ", [800.0, 1100.0, 1400.0])
@@ -199,12 +230,14 @@ class TestTegDehydrate:
     def test_efficiency_bounded(self) -> None:
         # Even with everything saturated to "perfect", efficiency caps at 0.995.
         # → outlet must be ≥ 0.5% of inlet.
-        out = teg_dehydrate(inlet_h2o_mg_m3=250.0, circ_lh=10_000.0,
-                            T_contactor_C=0.0, purity_pct=99.9)
+        out = teg_dehydrate(
+            inlet_h2o_mg_m3=250.0, circ_lh=10_000.0, T_contactor_C=0.0, purity_pct=99.9
+        )
         assert out >= 250.0 * (1.0 - 0.995) - 1e-9
 
 
 # ── lts_reduce_hc_dewpoint ────────────────────────────────────────────────────
+
 
 class TestLtsReduceHcDewpoint:
     def test_default_reduction(self) -> None:

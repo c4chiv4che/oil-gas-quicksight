@@ -24,8 +24,8 @@ import numpy as np
 
 # Kinesis PutRecords limits (AWS service quotas)
 MAX_RECORDS_PER_CALL = 500
-MAX_BATCH_BYTES = 5 * 1024 * 1024     # 5 MiB
-MAX_RECORD_BYTES = 1024 * 1024        # 1 MiB
+MAX_BATCH_BYTES = 5 * 1024 * 1024  # 5 MiB
+MAX_RECORD_BYTES = 1024 * 1024  # 1 MiB
 
 # Error codes that are worth retrying. Anything else is a hard failure.
 RETRYABLE_ERROR_CODES = {
@@ -37,6 +37,7 @@ RETRYABLE_ERROR_CODES = {
 @dataclass
 class SendStats:
     """Aggregate counters returned by KinesisProducer.send()."""
+
     total_sent: int = 0
     failed_after_retries: int = 0
     batches: int = 0
@@ -137,8 +138,7 @@ class KinesisProducer:
         for rec in prepared:
             # +1 byte of slack per record for the PutRecords envelope; cheap and safe.
             if chunk and (
-                len(chunk) >= MAX_RECORDS_PER_CALL
-                or chunk_bytes + rec.size > MAX_BATCH_BYTES
+                len(chunk) >= MAX_RECORDS_PER_CALL or chunk_bytes + rec.size > MAX_BATCH_BYTES
             ):
                 yield chunk
                 chunk = []
@@ -189,7 +189,7 @@ class KinesisProducer:
 
             # Exponential backoff with jitter
             delay = min(
-                self.backoff_base_s * (2 ** attempt) + random.uniform(0, self.backoff_base_s),
+                self.backoff_base_s * (2**attempt) + random.uniform(0, self.backoff_base_s),
                 self.backoff_cap_s,
             )
             self._sleep(delay)
@@ -200,8 +200,7 @@ class KinesisProducer:
     # ── Public API ──────────────────────────────────────────────────
     def send(self, records: Iterable[dict]) -> SendStats:
         prepared = [
-            _PreparedRecord(*serialize_record(r, self.partition_key_field))
-            for r in records
+            _PreparedRecord(*serialize_record(r, self.partition_key_field)) for r in records
         ]
         stats = SendStats()
         for batch in self._chunks(prepared):

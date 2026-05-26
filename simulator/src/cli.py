@@ -12,7 +12,9 @@ import typer
 from .config import DEFAULTS
 from .events import ESDReason
 
-app = typer.Typer(add_completion=False, help="Vaca Muerta shale ops simulator v2 (wells + plant + utilities).")
+app = typer.Typer(
+    add_completion=False, help="Vaca Muerta shale ops simulator v2 (wells + plant + utilities)."
+)
 
 
 @dataclass
@@ -47,35 +49,46 @@ def main(
     days: int = typer.Option(DEFAULTS["days"], help="Simulation length in days."),
     freq: int = typer.Option(DEFAULTS["freq"], help="Sampling frequency in minutes."),
     start: Optional[str] = typer.Option(None, help="ISO start datetime UTC. Default: now - days."),
-    layers: str = typer.Option(DEFAULTS["layers"], help="Comma-separated subset of wells,plant,utilities."),
+    layers: str = typer.Option(
+        DEFAULTS["layers"], help="Comma-separated subset of wells,plant,utilities."
+    ),
     upload: str = typer.Option(DEFAULTS["upload"], help="none | local | aws."),
-    output_dir: Path = typer.Option(Path(DEFAULTS["output_dir"]), help="Local output root for Parquet."),
+    output_dir: Path = typer.Option(
+        Path(DEFAULTS["output_dir"]), help="Local output root for Parquet."
+    ),
     seed: int = typer.Option(DEFAULTS["seed"], help="RNG seed."),
     inject_esd: Optional[str] = typer.Option(
-        None, help='ISO datetime to trigger a plant ESD, e.g. "2026-04-15T14:00:00".',
+        None,
+        help='ISO datetime to trigger a plant ESD, e.g. "2026-04-15T14:00:00".',
     ),
     esd_reason: ESDReason = typer.Option(
-        ESDReason.EXTERNAL_TRIP, help="ESD cause for --inject-esd.",
+        ESDReason.EXTERNAL_TRIP,
+        help="ESD cause for --inject-esd.",
     ),
     esd_duration_h: float = typer.Option(
-        DEFAULTS["esd_duration_h"], help="ESD duration before recovery starts.",
+        DEFAULTS["esd_duration_h"],
+        help="ESD duration before recovery starts.",
     ),
     inject_gas_lock: Optional[str] = typer.Option(
         None,
         help='Force a GAS_LOCK on one well.  Format "WELL_ID:ISO_TS"  '
-             'e.g. "LLL-002:2026-04-10T08:00:00".',
+        'e.g. "LLL-002:2026-04-10T08:00:00".',
     ),
     gas_lock_duration_h: float = typer.Option(3.0, help="Duration of injected gas-lock."),
     stream: bool = typer.Option(
-        False, "--stream/--no-stream",
+        False,
+        "--stream/--no-stream",
         help="Emit records to Kinesis for every layer in --layers. "
-             "Stream names are derived per layer as vaca-muerta-<layer>-stream.",
+        "Stream names are derived per layer as vaca-muerta-<layer>-stream.",
     ),
     no_local: bool = typer.Option(
-        False, "--no-local",
+        False,
+        "--no-local",
         help="Skip local Parquet for any streamed layer (Firehose lands it in S3). Requires --stream.",
     ),
-    profile: str = typer.Option("oil-gas-dev", help="AWS profile for boto3 session (Kinesis only)."),
+    profile: str = typer.Option(
+        "oil-gas-dev", help="AWS profile for boto3 session (Kinesis only)."
+    ),
 ) -> None:
     """Run the simulator and write three Parquet datasets partitioned by date."""
 
@@ -134,4 +147,5 @@ def main(
 
     # Import lazily so --help is instant
     from . import simulator as sim_main
+
     sim_main.run(cfg)

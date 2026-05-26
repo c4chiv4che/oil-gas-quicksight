@@ -45,21 +45,21 @@ class ESDReason(StrEnum):
 
 class ESDPhase(StrEnum):
     INACTIVE = "INACTIVE"
-    TRIP = "TRIP"                       # T+0s, ESD valves to fail-safe
-    DEPRESSURE = "DEPRESSURE"           # T+0-60s, plant inventory to flare
-    COMPRESSOR_TRIP = "COMPRESSOR_TRIP" # T+0-2min, anti-surge open, then SD
-    UTILITIES_DOWN = "UTILITIES_DOWN"   # T+0-5min, hot oil + propane trip
-    HOLD = "HOLD"                       # T+5min until recovery_start, pilots stay lit
-    RECOVERY = "RECOVERY"               # 30-90 min ramp-up
+    TRIP = "TRIP"  # T+0s, ESD valves to fail-safe
+    DEPRESSURE = "DEPRESSURE"  # T+0-60s, plant inventory to flare
+    COMPRESSOR_TRIP = "COMPRESSOR_TRIP"  # T+0-2min, anti-surge open, then SD
+    UTILITIES_DOWN = "UTILITIES_DOWN"  # T+0-5min, hot oil + propane trip
+    HOLD = "HOLD"  # T+5min until recovery_start, pilots stay lit
+    RECOVERY = "RECOVERY"  # 30-90 min ramp-up
 
 
 # Phase boundary offsets from esd start_ts
 _ESD_BOUNDARIES = [
-    (timedelta(seconds=0),  ESDPhase.TRIP),
+    (timedelta(seconds=0), ESDPhase.TRIP),
     (timedelta(seconds=30), ESDPhase.DEPRESSURE),
-    (timedelta(minutes=2),  ESDPhase.COMPRESSOR_TRIP),
-    (timedelta(minutes=5),  ESDPhase.UTILITIES_DOWN),
-    (timedelta(minutes=20), ESDPhase.HOLD),     # flare HP spike lasts 10-20 min per spec
+    (timedelta(minutes=2), ESDPhase.COMPRESSOR_TRIP),
+    (timedelta(minutes=5), ESDPhase.UTILITIES_DOWN),
+    (timedelta(minutes=20), ESDPhase.HOLD),  # flare HP spike lasts 10-20 min per spec
 ]
 
 
@@ -68,13 +68,13 @@ class ESDState:
     active: bool = False
     reason: Optional[ESDReason] = None
     start_ts: Optional[datetime] = None
-    end_ts: Optional[datetime] = None          # planned recovery start
+    end_ts: Optional[datetime] = None  # planned recovery start
     recovery_duration: timedelta = timedelta(minutes=60)
 
     def phase(self, ts: datetime) -> ESDPhase:
         if not self.active or self.start_ts is None:
             return ESDPhase.INACTIVE
-        if ts < self.start_ts:                           # scheduled but not yet fired
+        if ts < self.start_ts:  # scheduled but not yet fired
             return ESDPhase.INACTIVE
         if self.end_ts is not None and ts >= self.end_ts:
             elapsed_recovery = ts - self.end_ts
@@ -104,6 +104,7 @@ class ESDState:
 @dataclass
 class WellOverride:
     """A scheduled forced event for a specific well (used by --inject-gas-lock)."""
+
     event: WellEvent
     start_ts: datetime
     end_ts: datetime
@@ -112,6 +113,7 @@ class WellOverride:
 @dataclass
 class EventBus:
     """Central event coordinator.  Wells, plant, and utilities all read state from here."""
+
     esd: ESDState = field(default_factory=ESDState)
     well_overrides: dict[str, list[WellOverride]] = field(default_factory=dict)
 
@@ -123,8 +125,9 @@ class EventBus:
             end_ts=ts + timedelta(hours=duration_h),
         )
 
-    def inject_well_event(self, well_id: str, ts: datetime, event: WellEvent,
-                          duration_h: float) -> None:
+    def inject_well_event(
+        self, well_id: str, ts: datetime, event: WellEvent, duration_h: float
+    ) -> None:
         self.well_overrides.setdefault(well_id, []).append(
             WellOverride(event=event, start_ts=ts, end_ts=ts + timedelta(hours=duration_h))
         )
@@ -202,7 +205,7 @@ class WellStateMachine:
         if self.state in (WellEvent.PRODUCING, WellEvent.FLOWBACK):
             r = self.rng.random()
             # Probabilities tuned for ~one event per well every few days at 1-5 min tick
-            if r < 0.00002:                          # GAS_LOCK ~0.02%/min spec § 5.1
+            if r < 0.00002:  # GAS_LOCK ~0.02%/min spec § 5.1
                 self.state = WellEvent.GAS_LOCK
                 self.state_until = ts + timedelta(hours=float(self.rng.uniform(1.0, 6.0)))
                 self.shutdown_reason = "ESP_GAS_LOCK"
@@ -232,7 +235,7 @@ class WellStateMachine:
             case WellEvent.FLOWBACK:
                 return 0.6
             case WellEvent.GAS_LOCK:
-                return 0.0                # ESP can't lift
+                return 0.0  # ESP can't lift
             case WellEvent.SAND_PLUG:
                 return 0.5
             case WellEvent.HIGH_VIBRATION:

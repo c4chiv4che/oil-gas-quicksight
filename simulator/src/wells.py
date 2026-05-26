@@ -17,6 +17,7 @@ from .quality import GasComposition
 @dataclass
 class InletStream:
     """Plant-facing aggregate of all currently producing wells."""
+
     total_gas_mm3d: float
     total_oil_m3d: float
     total_water_m3d: float
@@ -37,7 +38,7 @@ class Well:
         self.rng = rng
 
         # Decline params — Arps hyperbolic, slightly different per well
-        self.qi_oil = float(rng.uniform(80.0, 120.0))     # m³/d initial
+        self.qi_oil = float(rng.uniform(80.0, 120.0))  # m³/d initial
         self.base_gor = float(rng.uniform(280.0, 400.0))  # m³/m³ baseline
         self.b = float(rng.uniform(1.3, 1.8))
         self.Di = float(rng.uniform(0.008, 0.015))
@@ -60,27 +61,47 @@ class Well:
 
     # ── Internal helpers ────────────────────────────────────────────
     def _signals_idle(self, ts: datetime) -> dict:
-        zeros = {tag: 0.0 for tag in (
-            "FT_OIL", "FT_GAS", "FT_WATER",
-            "IT_ESP", "SI_ESP", "ZT_CHOKE",
-        )}
+        zeros = {
+            tag: 0.0
+            for tag in (
+                "FT_OIL",
+                "FT_GAS",
+                "FT_WATER",
+                "IT_ESP",
+                "SI_ESP",
+                "ZT_CHOKE",
+            )
+        }
         return {
             "timestamp": ts,
             "pad_id": PAD_ID,
             "well_id": self.well_id,
             "well_state": self.sm.state.value,
             "shutdown_reason": self.sm.shutdown_reason,
-            "t_days_online": round(max(0.0, (ts - self.first_production).total_seconds() / 86400.0), 3),
-            "WHP": 0.0, "CHP": 0.0, "TT_FLOW": 20.0,
+            "t_days_online": round(
+                max(0.0, (ts - self.first_production).total_seconds() / 86400.0), 3
+            ),
+            "WHP": 0.0,
+            "CHP": 0.0,
+            "TT_FLOW": 20.0,
             **zeros,
-            "PT_DOWNHOLE": 200.0, "AI_GOR": self.base_gor, "AI_WCUT": 0.0,
-            "AI_C1": self.base_comp.c1, "AI_C2": self.base_comp.c2,
-            "AI_C3": self.base_comp.c3, "AI_C4": self.base_comp.c4,
+            "PT_DOWNHOLE": 200.0,
+            "AI_GOR": self.base_gor,
+            "AI_WCUT": 0.0,
+            "AI_C1": self.base_comp.c1,
+            "AI_C2": self.base_comp.c2,
+            "AI_C3": self.base_comp.c3,
+            "AI_C4": self.base_comp.c4,
             "AI_C5_PLUS": self.base_comp.c5_plus,
-            "AI_CO2": self.base_comp.co2, "AI_N2": self.base_comp.n2,
-            "AI_H2S": self.base_comp.h2s, "AI_H2O": self.base_comp.h2o,
-            "AI_SAND": 0.0, "VT_ESP": 0.0, "TT_ESP_OIL": 25.0,
-            "corrosion_risk": 0.0, "hydrate_risk": 0.0,
+            "AI_CO2": self.base_comp.co2,
+            "AI_N2": self.base_comp.n2,
+            "AI_H2S": self.base_comp.h2s,
+            "AI_H2O": self.base_comp.h2o,
+            "AI_SAND": 0.0,
+            "VT_ESP": 0.0,
+            "TT_ESP_OIL": 25.0,
+            "corrosion_risk": 0.0,
+            "hydrate_risk": 0.0,
         }
 
     def step(self, ts: datetime, bus: EventBus) -> dict:
@@ -102,14 +123,15 @@ class Well:
         # ── Rates ─────────────────────────────────────────────────
         oil = physics.arps_hyperbolic(self.qi_oil, self.b, self.Di, t_days) * factor
         gor = physics.gor_creep(self.base_gor, t_days)
-        gas = oil * gor / 1000.0                                    # Mm³/d
+        gas = oil * gor / 1000.0  # Mm³/d
         wc = physics.watercut_creep(0.02, t_days, flowback=in_flowback)
         water = oil * wc / max(1e-6, 1.0 - wc)
 
         # ── Pressures ─────────────────────────────────────────────
         choke = physics.clip(
             (20.0 + oil * 0.65) * (1.2 if in_flowback else 1.0),
-            5.0, 100.0,
+            5.0,
+            100.0,
         )
         whp = physics.whp_from_oil_choke(oil, choke)
         chp = whp * 0.45
@@ -121,18 +143,17 @@ class Well:
         flowline_T = 55.0 + oil * 0.25 + gas * 0.05
         esp_oil_T = 70.0 + curr * 0.15 + (15.0 if state == WellEvent.HIGH_VIBRATION else 0.0)
         vib = (
-            1.0 if state == WellEvent.PRODUCING
-            else 1.8 if state == WellEvent.FLOWBACK
-            else 5.5 if state == WellEvent.HIGH_VIBRATION
+            1.0
+            if state == WellEvent.PRODUCING
+            else 1.8
+            if state == WellEvent.FLOWBACK
+            else 5.5
+            if state == WellEvent.HIGH_VIBRATION
             else 1.2
         )
 
         # ── Sand ──────────────────────────────────────────────────
-        sand = (
-            12.0 if in_flowback
-            else 35.0 if state == WellEvent.SAND_PLUG
-            else 3.0
-        )
+        sand = 12.0 if in_flowback else 35.0 if state == WellEvent.SAND_PLUG else 3.0
 
         # ── Composition ──────────────────────────────────────────
         comp = quality.composition_shift(self.base_comp, gor, t_days)
@@ -208,8 +229,12 @@ class WellPad:
         streams = [(w.last_comp, w.last_gas) for w in self.wells if w.last_gas > 0]
         if streams:
             comp = quality.weighted_mix(streams)
-            avg_T = sum(w.last_T * w.last_gas for w in self.wells) / max(1e-6, sum(w.last_gas for w in self.wells))
-            avg_P = sum(w.last_P * w.last_gas for w in self.wells) / max(1e-6, sum(w.last_gas for w in self.wells))
+            avg_T = sum(w.last_T * w.last_gas for w in self.wells) / max(
+                1e-6, sum(w.last_gas for w in self.wells)
+            )
+            avg_P = sum(w.last_P * w.last_gas for w in self.wells) / max(
+                1e-6, sum(w.last_gas for w in self.wells)
+            )
         else:
             comp = self.wells[0].base_comp
             avg_T = 25.0

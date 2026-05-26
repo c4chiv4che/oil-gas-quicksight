@@ -22,6 +22,7 @@ from src.stream import (
 
 # ── Fake Kinesis client ───────────────────────────────────────────────────────
 
+
 class FakeKinesisClient:
     """Stand-in for boto3 kinesis client.
 
@@ -92,6 +93,7 @@ def _make_utilities_record() -> dict:
 
 # ── Serialization ─────────────────────────────────────────────────────────────
 
+
 class TestSerialization:
     def test_timestamp_serialized_for_glue(self) -> None:
         # Firehose JSON->Parquet rejects ISO 8601 with "T" / tz offset; it expects
@@ -130,6 +132,7 @@ class TestSerialization:
 
 
 # ── Multi-layer serialization (plant / utilities use pad_id as partition key) ─
+
 
 class TestMultiLayerSerialization:
     """Locks in the contract that all three layers share the same Glue-native
@@ -202,6 +205,7 @@ class TestKinesisProducerPartitionKey:
 
 # ── Batching ──────────────────────────────────────────────────────────────────
 
+
 class TestBatching:
     def test_under_500_records_one_call(self) -> None:
         fake = FakeKinesisClient()
@@ -258,6 +262,7 @@ class TestBatching:
 
 # ── Partial-failure retries ───────────────────────────────────────────────────
 
+
 class TestPartialFailureRetry:
     def test_partial_failure_retries_only_failed_records(self) -> None:
         # Call 1: first 50 of 500 fail with throttling. Call 2 (retry): all succeed.
@@ -271,7 +276,7 @@ class TestPartialFailureRetry:
         assert len(fake.calls[1]["Records"]) == 50
         assert stats.total_sent == 500
         assert stats.failed_after_retries == 0
-        assert stats.batches == 1     # batches counts source chunks, not retries
+        assert stats.batches == 1  # batches counts source chunks, not retries
         assert stats.retries == 1
 
     def test_retry_carries_correct_payloads(self) -> None:
@@ -293,7 +298,10 @@ class TestPartialFailureRetry:
         fail_plan = [{"fail_first": 10}] * 20  # plenty
         fake = FakeKinesisClient(fail_plan=fail_plan)
         prod = KinesisProducer(
-            "test-stream", client=fake, sleep_fn=_no_sleep, max_retries=3,
+            "test-stream",
+            client=fake,
+            sleep_fn=_no_sleep,
+            max_retries=3,
         )
         records = [_make_record(f"W-{i:03d}", i) for i in range(10)]
         stats = prod.send(records)
@@ -306,14 +314,16 @@ class TestPartialFailureRetry:
 
     def test_hard_error_not_retried(self) -> None:
         # Non-retryable error code → counted as failed, no retry
-        fake = FakeKinesisClient(fail_plan=[
-            {"fail_first": 2, "code": "ValidationException"},
-        ])
+        fake = FakeKinesisClient(
+            fail_plan=[
+                {"fail_first": 2, "code": "ValidationException"},
+            ]
+        )
         prod = KinesisProducer("test-stream", client=fake, sleep_fn=_no_sleep)
         records = [_make_record(f"W-{i:03d}", i) for i in range(10)]
         stats = prod.send(records)
 
-        assert len(fake.calls) == 1                  # no retry attempted
+        assert len(fake.calls) == 1  # no retry attempted
         assert stats.failed_after_retries == 2
         assert stats.total_sent == 8
         assert stats.retries == 0
@@ -344,6 +354,7 @@ class TestPartialFailureRetry:
 
 # ── SendStats aggregation ─────────────────────────────────────────────────────
 
+
 class TestSendStats:
     def test_merge_accumulates(self) -> None:
         a = SendStats(total_sent=10, batches=1, retries=0, failed_after_retries=0)
@@ -356,6 +367,7 @@ class TestSendStats:
 
 
 # ── Multi-layer dispatch (simulator-level, no real AWS) ───────────────────────
+
 
 class TestSimulatorMultiLayerDispatch:
     """End-to-end: cfg.stream=True with all three layers wires up one producer
@@ -375,8 +387,14 @@ class TestSimulatorMultiLayerDispatch:
         from src.events import ESDReason
 
         # Silence rich output
-        sink = Console(file=io.StringIO(), force_terminal=False, force_jupyter=False,
-                       record=False, quiet=False, width=120)
+        sink = Console(
+            file=io.StringIO(),
+            force_terminal=False,
+            force_jupyter=False,
+            record=False,
+            quiet=False,
+            width=120,
+        )
         monkeypatch.setattr(simulator_module, "console", sink)
         monkeypatch.setattr(output_module, "console", sink)
 
@@ -399,12 +417,22 @@ class TestSimulatorMultiLayerDispatch:
         start = datetime(2026, 4, 15, 0, 0, 0, tzinfo=timezone.utc)
         end = datetime(2026, 4, 15, 2, 0, 0, tzinfo=timezone.utc)  # 2 hours
         cfg = RunConfig(
-            start=start, end=end, freq_minutes=60,
+            start=start,
+            end=end,
+            freq_minutes=60,
             layers=("wells", "plant", "utilities"),
-            upload="none", output_dir=Path(tmp_path), seed=42,
-            inject_esd_at=None, esd_reason=ESDReason.EXTERNAL_TRIP, esd_duration_h=4.0,
-            inject_gas_lock_well=None, inject_gas_lock_at=None, gas_lock_duration_h=3.0,
-            stream=True, no_local=False, profile="oil-gas-dev",
+            upload="none",
+            output_dir=Path(tmp_path),
+            seed=42,
+            inject_esd_at=None,
+            esd_reason=ESDReason.EXTERNAL_TRIP,
+            esd_duration_h=4.0,
+            inject_gas_lock_well=None,
+            inject_gas_lock_at=None,
+            gas_lock_duration_h=3.0,
+            stream=True,
+            no_local=False,
+            profile="oil-gas-dev",
         )
         simulator_module.run(cfg)
         return instances
@@ -449,8 +477,14 @@ class TestSimulatorMultiLayerDispatch:
         from src.cli import RunConfig
         from src.events import ESDReason
 
-        sink = Console(file=io.StringIO(), force_terminal=False, force_jupyter=False,
-                       record=False, quiet=False, width=120)
+        sink = Console(
+            file=io.StringIO(),
+            force_terminal=False,
+            force_jupyter=False,
+            record=False,
+            quiet=False,
+            width=120,
+        )
         monkeypatch.setattr(simulator_module, "console", sink)
         monkeypatch.setattr(output_module, "console", sink)
 
@@ -467,12 +501,22 @@ class TestSimulatorMultiLayerDispatch:
 
         start = datetime(2026, 4, 15, 0, 0, 0, tzinfo=timezone.utc)
         cfg = RunConfig(
-            start=start, end=start.replace(hour=1), freq_minutes=60,
+            start=start,
+            end=start.replace(hour=1),
+            freq_minutes=60,
             layers=("plant", "utilities"),
-            upload="none", output_dir=Path(tmp_path), seed=42,
-            inject_esd_at=None, esd_reason=ESDReason.EXTERNAL_TRIP, esd_duration_h=4.0,
-            inject_gas_lock_well=None, inject_gas_lock_at=None, gas_lock_duration_h=3.0,
-            stream=True, no_local=False, profile="oil-gas-dev",
+            upload="none",
+            output_dir=Path(tmp_path),
+            seed=42,
+            inject_esd_at=None,
+            esd_reason=ESDReason.EXTERNAL_TRIP,
+            esd_duration_h=4.0,
+            inject_gas_lock_well=None,
+            inject_gas_lock_at=None,
+            gas_lock_duration_h=3.0,
+            stream=True,
+            no_local=False,
+            profile="oil-gas-dev",
         )
         simulator_module.run(cfg)
 

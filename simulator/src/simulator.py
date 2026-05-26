@@ -40,8 +40,8 @@ console = Console()
 # Plant/utilities are pad-level aggregates; single-pad lab → pad_id is the
 # only sensible key. With 1 shard per stream this has no throughput impact.
 PARTITION_KEY_FIELDS = {
-    "wells":     "well_id",
-    "plant":     "pad_id",
+    "wells": "well_id",
+    "plant": "pad_id",
     "utilities": "pad_id",
 }
 
@@ -80,22 +80,32 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
     plant = Plant(np.random.default_rng(int(rng.integers(0, 2**31 - 1))))
     utils = Utilities(np.random.default_rng(int(rng.integers(0, 2**31 - 1))))
 
-    timestamps = pd.date_range(cfg.start, cfg.end, freq=f"{cfg.freq_minutes}min", tz="UTC", inclusive="left")
+    timestamps = pd.date_range(
+        cfg.start, cfg.end, freq=f"{cfg.freq_minutes}min", tz="UTC", inclusive="left"
+    )
 
     # ── Banner ───────────────────────────────────────────────────────
     console.print("\n[bold cyan]Vaca Muerta Simulator v2[/bold cyan]")
     console.print(f"  Pad:     {PAD_ID}  ({len(pad.wells)} wells)")
-    console.print(f"  Period:  {cfg.start.isoformat()} → {cfg.end.isoformat()}  ({cfg.freq_minutes}-min ticks)")
+    console.print(
+        f"  Period:  {cfg.start.isoformat()} → {cfg.end.isoformat()}  ({cfg.freq_minutes}-min ticks)"
+    )
     console.print(f"  Layers:  {', '.join(cfg.layers)}")
     console.print(f"  Output:  {cfg.output_dir}")
     console.print(f"  Upload:  {cfg.upload}")
     if cfg.inject_esd_at:
-        console.print(f"  [yellow]ESD injected[/yellow]: {cfg.inject_esd_at.isoformat()}  reason={cfg.esd_reason.value}  duration={cfg.esd_duration_h}h")
+        console.print(
+            f"  [yellow]ESD injected[/yellow]: {cfg.inject_esd_at.isoformat()}  reason={cfg.esd_reason.value}  duration={cfg.esd_duration_h}h"
+        )
     if cfg.inject_gas_lock_well:
-        console.print(f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}")
+        console.print(
+            f"  [yellow]GAS_LOCK injected[/yellow]: {cfg.inject_gas_lock_well} @ {cfg.inject_gas_lock_at}"
+        )
     if cfg.stream:
         streamed = ", ".join(_stream_name_for(layer) for layer in cfg.layers)
-        console.print(f"  [cyan]Streaming[/cyan]: → {streamed}  (profile={cfg.profile}, local={'off' if cfg.no_local else 'on'})")
+        console.print(
+            f"  [cyan]Streaming[/cyan]: → {streamed}  (profile={cfg.profile}, local={'off' if cfg.no_local else 'on'})"
+        )
     console.print()
 
     # ── Kinesis producers (one per streamed layer) ──────────────────
@@ -184,18 +194,21 @@ def run(cfg: RunConfig) -> dict[str, pd.DataFrame]:
             if cfg.no_local and layer in streamed_layers:
                 continue
             n = upload_layer_s3(cfg.output_dir, layer, cfg.upload)
-            console.print(f"[green]✓[/green] uploaded {n} files for layer '{layer}' → s3 ({cfg.upload})")
+            console.print(
+                f"[green]✓[/green] uploaded {n} files for layer '{layer}' → s3 ({cfg.upload})"
+            )
 
     # ── Stream summary ──────────────────────────────────────────────
     if cfg.stream and stream_stats:
         any_failed = any(s.failed_after_retries for s in stream_stats.values())
         stream_table = Table(title="Kinesis streams", show_lines=False)
-        stream_table.add_column("Stream",               style="cyan")
-        stream_table.add_column("Sent",                 justify="right", style="green")
-        stream_table.add_column("Batches",              justify="right")
-        stream_table.add_column("Retries",              justify="right")
-        stream_table.add_column("Failed after retries", justify="right",
-                                style="red" if any_failed else "dim")
+        stream_table.add_column("Stream", style="cyan")
+        stream_table.add_column("Sent", justify="right", style="green")
+        stream_table.add_column("Batches", justify="right")
+        stream_table.add_column("Retries", justify="right")
+        stream_table.add_column(
+            "Failed after retries", justify="right", style="red" if any_failed else "dim"
+        )
         for layer in cfg.layers:
             if layer not in stream_stats:
                 continue

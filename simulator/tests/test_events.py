@@ -21,30 +21,49 @@ from src.events import (
 # These pin the string values so a rename or accidental edit breaks the suite
 # loudly instead of silently breaking Athena queries that join on these strings.
 
+
 class TestEnumStability:
     def test_esd_reason_values(self) -> None:
         assert {r.value for r in ESDReason} == {
-            "FIRE_GAS_HIGH", "HIGH_H2S", "HIGH_HIGH_PRESSURE", "LOW_LOW_LEVEL",
-            "HIGH_HIGH_TEMP", "POWER_FAILURE", "INSTRUMENT_AIR_LOSS",
-            "EXTERNAL_TRIP", "PLANNED_MAINTENANCE",
+            "FIRE_GAS_HIGH",
+            "HIGH_H2S",
+            "HIGH_HIGH_PRESSURE",
+            "LOW_LOW_LEVEL",
+            "HIGH_HIGH_TEMP",
+            "POWER_FAILURE",
+            "INSTRUMENT_AIR_LOSS",
+            "EXTERNAL_TRIP",
+            "PLANNED_MAINTENANCE",
         }
 
     def test_esd_phase_values(self) -> None:
         assert {p.value for p in ESDPhase} == {
-            "INACTIVE", "TRIP", "DEPRESSURE", "COMPRESSOR_TRIP",
-            "UTILITIES_DOWN", "HOLD", "RECOVERY",
+            "INACTIVE",
+            "TRIP",
+            "DEPRESSURE",
+            "COMPRESSOR_TRIP",
+            "UTILITIES_DOWN",
+            "HOLD",
+            "RECOVERY",
         }
 
     def test_well_event_values(self) -> None:
         assert {e.value for e in WellEvent} == {
-            "IDLE", "FLOWBACK", "PRODUCING", "GAS_LOCK", "SAND_PLUG",
-            "HIGH_WHP_ALARM", "HIGH_VIBRATION", "SHUTDOWN",
+            "IDLE",
+            "FLOWBACK",
+            "PRODUCING",
+            "GAS_LOCK",
+            "SAND_PLUG",
+            "HIGH_WHP_ALARM",
+            "HIGH_VIBRATION",
+            "SHUTDOWN",
         }
 
 
 # ── ESDState.phase() — boundary table ─────────────────────────────────────────
 # Pulled from the real _ESD_BOUNDARIES rather than hardcoded so a change
 # in source is reflected here automatically.
+
 
 def _phase_for_elapsed(elapsed: timedelta) -> ESDPhase:
     """What phase ESDState.phase() should report for a given elapsed time
@@ -97,8 +116,9 @@ class TestESDStatePhase:
             timedelta(hours=2),
         ],
     )
-    def test_phase_matches_boundaries(self, active_esd: ESDState,
-                                      start_ts: datetime, elapsed: timedelta) -> None:
+    def test_phase_matches_boundaries(
+        self, active_esd: ESDState, start_ts: datetime, elapsed: timedelta
+    ) -> None:
         expected = _phase_for_elapsed(elapsed)
         got = active_esd.phase(start_ts + elapsed)
         assert got == expected, f"at +{elapsed}: expected {expected}, got {got}"
@@ -131,17 +151,17 @@ class TestESDStateShutdownAndRecovery:
     @pytest.mark.parametrize(
         "elapsed,is_sd",
         [
-            (timedelta(seconds=0),  True),    # TRIP
-            (timedelta(seconds=30), True),    # DEPRESSURE
-            (timedelta(minutes=2),  True),    # COMPRESSOR_TRIP
-            (timedelta(minutes=5),  True),    # UTILITIES_DOWN
-            (timedelta(minutes=20), True),    # HOLD
-            (timedelta(hours=1),    True),    # still HOLD
+            (timedelta(seconds=0), True),  # TRIP
+            (timedelta(seconds=30), True),  # DEPRESSURE
+            (timedelta(minutes=2), True),  # COMPRESSOR_TRIP
+            (timedelta(minutes=5), True),  # UTILITIES_DOWN
+            (timedelta(minutes=20), True),  # HOLD
+            (timedelta(hours=1), True),  # still HOLD
         ],
     )
-    def test_is_shutdown_in_active_window(self, active_esd: ESDState,
-                                          start_ts: datetime,
-                                          elapsed: timedelta, is_sd: bool) -> None:
+    def test_is_shutdown_in_active_window(
+        self, active_esd: ESDState, start_ts: datetime, elapsed: timedelta, is_sd: bool
+    ) -> None:
         assert active_esd.is_shutdown(start_ts + elapsed) is is_sd
 
     def test_is_not_shutdown_in_recovery_or_after(self, active_esd: ESDState) -> None:
@@ -170,6 +190,7 @@ class TestESDStateShutdownAndRecovery:
 
 # ── EventBus ──────────────────────────────────────────────────────────────────
 
+
 class TestEventBus:
     def test_schedule_esd_sets_state(self, start_ts: datetime) -> None:
         bus = EventBus()
@@ -183,9 +204,13 @@ class TestEventBus:
         bus = EventBus()
         bus.schedule_esd(start_ts, ESDReason.EXTERNAL_TRIP, duration_h=1.0)
         # Phase queries match the _phase_for_elapsed table
-        for elapsed in [timedelta(seconds=0), timedelta(seconds=30),
-                        timedelta(minutes=2), timedelta(minutes=5),
-                        timedelta(minutes=20)]:
+        for elapsed in [
+            timedelta(seconds=0),
+            timedelta(seconds=30),
+            timedelta(minutes=2),
+            timedelta(minutes=5),
+            timedelta(minutes=20),
+        ]:
             ts = start_ts + elapsed
             bus.tick(ts)
             assert bus.esd.phase(ts) == _phase_for_elapsed(elapsed)
@@ -205,7 +230,9 @@ class TestEventBus:
         bus = EventBus()
         bus.inject_well_event("LLL-002", start_ts, WellEvent.GAS_LOCK, duration_h=3.0)
         assert bus.active_well_override("LLL-002", start_ts) == WellEvent.GAS_LOCK
-        assert bus.active_well_override("LLL-002", start_ts + timedelta(hours=2)) == WellEvent.GAS_LOCK
+        assert (
+            bus.active_well_override("LLL-002", start_ts + timedelta(hours=2)) == WellEvent.GAS_LOCK
+        )
 
     def test_inject_well_event_outside_window(self, start_ts: datetime) -> None:
         bus = EventBus()
@@ -222,6 +249,7 @@ class TestEventBus:
 
 
 # ── WellStateMachine ──────────────────────────────────────────────────────────
+
 
 class TestWellStateMachine:
     def test_idle_before_first_production(self, start_ts: datetime) -> None:
@@ -305,8 +333,9 @@ class TestWellStateMachine:
             (WellEvent.HIGH_WHP_ALARM, 0.0),  # falls through to default → 0
         ],
     )
-    def test_production_factor_table(self, event: WellEvent, expected_factor: float,
-                                     start_ts: datetime) -> None:
+    def test_production_factor_table(
+        self, event: WellEvent, expected_factor: float, start_ts: datetime
+    ) -> None:
         rng = np.random.default_rng(0)
         sm = WellStateMachine("LLL-001", start_ts, rng)
         sm.state = event
@@ -318,7 +347,12 @@ class TestWellStateMachine:
         for ev in (WellEvent.PRODUCING, WellEvent.FLOWBACK):
             sm.state = ev
             assert sm.is_producing() is True
-        for ev in (WellEvent.IDLE, WellEvent.GAS_LOCK, WellEvent.SHUTDOWN,
-                   WellEvent.SAND_PLUG, WellEvent.HIGH_VIBRATION):
+        for ev in (
+            WellEvent.IDLE,
+            WellEvent.GAS_LOCK,
+            WellEvent.SHUTDOWN,
+            WellEvent.SAND_PLUG,
+            WellEvent.HIGH_VIBRATION,
+        ):
             sm.state = ev
             assert sm.is_producing() is False

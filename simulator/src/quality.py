@@ -9,12 +9,22 @@ from typing import Iterable
 # pcs_kcal: gross heating value per m³ at 15°C, 101.325 kPa.
 # density: relative to air (28.96 g/mol).
 _COMP_PCS_KCAL = {
-    "c1": 9520, "c2": 16860, "c3": 24180, "c4": 31370, "c5_plus": 38690,
-    "co2": 0, "n2": 0,
+    "c1": 9520,
+    "c2": 16860,
+    "c3": 24180,
+    "c4": 31370,
+    "c5_plus": 38690,
+    "co2": 0,
+    "n2": 0,
 }
 _COMP_MW = {
-    "c1": 16.04, "c2": 30.07, "c3": 44.10, "c4": 58.12, "c5_plus": 72.15,
-    "co2": 44.01, "n2": 28.01,
+    "c1": 16.04,
+    "c2": 30.07,
+    "c3": 44.10,
+    "c4": 58.12,
+    "c5_plus": 72.15,
+    "co2": 44.01,
+    "n2": 28.01,
 }
 _AIR_MW = 28.96
 
@@ -22,6 +32,7 @@ _AIR_MW = 28.96
 @dataclass
 class GasComposition:
     """%molar for hydrocarbons + CO2 + N2.  h2s/h2o expressed as mg/m³."""
+
     c1: float
     c2: float
     c3: float
@@ -29,8 +40,8 @@ class GasComposition:
     c5_plus: float
     co2: float
     n2: float
-    h2s: float = 0.0           # mg/m³
-    h2o: float = 0.0           # mg/m³
+    h2s: float = 0.0  # mg/m³
+    h2o: float = 0.0  # mg/m³
 
     @classmethod
     def from_dict(cls, d: dict[str, float]) -> "GasComposition":
@@ -44,8 +55,13 @@ class GasComposition:
         k = 100.0 / total
         return replace(
             self,
-            c1=self.c1 * k, c2=self.c2 * k, c3=self.c3 * k, c4=self.c4 * k,
-            c5_plus=self.c5_plus * k, co2=self.co2 * k, n2=self.n2 * k,
+            c1=self.c1 * k,
+            c2=self.c2 * k,
+            c3=self.c3 * k,
+            c4=self.c4 * k,
+            c5_plus=self.c5_plus * k,
+            co2=self.co2 * k,
+            n2=self.n2 * k,
         )
 
     def c1_fraction(self) -> float:
@@ -53,10 +69,7 @@ class GasComposition:
 
     def pcs_kcal_m3(self) -> float:
         """Gross heating value (AI_PCS).  Σ(yi · PCSi)."""
-        return sum(
-            getattr(self, k) / 100.0 * pcs
-            for k, pcs in _COMP_PCS_KCAL.items()
-        )
+        return sum(getattr(self, k) / 100.0 * pcs for k, pcs in _COMP_PCS_KCAL.items())
 
     def relative_density(self) -> float:
         """AI_DENSITY: MW_gas / MW_air."""
@@ -66,7 +79,7 @@ class GasComposition:
     def wobbe_kcal_m3(self) -> float:
         """AI_WOBBE = PCS / √(relative density)."""
         d = self.relative_density()
-        return self.pcs_kcal_m3() / (d ** 0.5) if d > 0 else 0.0
+        return self.pcs_kcal_m3() / (d**0.5) if d > 0 else 0.0
 
     def total_sulfur_mg_m3(self) -> float:
         """For AI_S_TOTAL.  Assume sulfur ≈ H2S only on a sweet gas (no mercaptans modelled)."""
@@ -96,16 +109,26 @@ def weighted_mix(streams: Iterable[tuple[GasComposition, float]]) -> GasComposit
     if total_w <= 0:
         # default fallback — return first stream as-is
         return streams[0][0] if streams else GasComposition(85, 8, 3, 1, 0.5, 1, 1.5, 1, 250)
+
     def avg(attr: str) -> float:
         return sum(getattr(c, attr) * w for c, w in streams) / total_w
+
     return GasComposition(
-        c1=avg("c1"), c2=avg("c2"), c3=avg("c3"), c4=avg("c4"), c5_plus=avg("c5_plus"),
-        co2=avg("co2"), n2=avg("n2"), h2s=avg("h2s"), h2o=avg("h2o"),
+        c1=avg("c1"),
+        c2=avg("c2"),
+        c3=avg("c3"),
+        c4=avg("c4"),
+        c5_plus=avg("c5_plus"),
+        co2=avg("co2"),
+        n2=avg("n2"),
+        h2s=avg("h2s"),
+        h2o=avg("h2o"),
     ).normalize()
 
 
-def teg_dehydrate(inlet_h2o_mg_m3: float, circ_lh: float, T_contactor_C: float,
-                  purity_pct: float) -> float:
+def teg_dehydrate(
+    inlet_h2o_mg_m3: float, circ_lh: float, T_contactor_C: float, purity_pct: float
+) -> float:
     """Water removal efficiency.  Better at higher circulation, lower T, higher purity.
     Returns outlet H2O in mg/m³.  Target ≤ 65 mg/m³ per NAG-602."""
     base_eff = 0.92

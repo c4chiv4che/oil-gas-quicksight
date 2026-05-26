@@ -32,9 +32,15 @@ def vm_comp() -> GasComposition:
     """Sales-gas-side Vaca Muerta composition: lands inside NAG-602 PCS band
     (heavies already stripped by LTS in the real pipeline). Sums to exactly 100.0."""
     return GasComposition(
-        c1=90.0, c2=6.0, c3=1.5, c4=0.3, c5_plus=0.05,
-        co2=1.0, n2=1.15,
-        h2s=2.0, h2o=50.0,
+        c1=90.0,
+        c2=6.0,
+        c3=1.5,
+        c4=0.3,
+        c5_plus=0.05,
+        co2=1.0,
+        n2=1.15,
+        h2s=2.0,
+        h2o=50.0,
     )
 
 
@@ -43,9 +49,15 @@ def wellhead_comp() -> GasComposition:
     """Raw wellhead composition (heavies still present). Used to exercise
     composition_shift and weighted_mix realistically. Sums to 100.0."""
     return GasComposition(
-        c1=86.0, c2=8.0, c3=3.0, c4=1.0, c5_plus=0.5,
-        co2=1.0, n2=0.5,
-        h2s=2.0, h2o=250.0,
+        c1=86.0,
+        c2=8.0,
+        c3=3.0,
+        c4=1.0,
+        c5_plus=0.5,
+        co2=1.0,
+        n2=0.5,
+        h2s=2.0,
+        h2o=250.0,
     )
 
 
