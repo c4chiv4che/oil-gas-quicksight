@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.70"
+      version = "~> 6.46"
     }
     # Packages the embed-url Lambda (lambda/embed_url.py) into a zip for
     # aws_lambda_function in quicksight-embed.tf. Terraform allows only one
